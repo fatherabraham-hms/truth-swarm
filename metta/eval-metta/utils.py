@@ -4,7 +4,6 @@ from openai import OpenAI
 from .medicalrag import MedicalRAG
 from .defirag import DefiRAG
 
-(WIP)
 class LLM:
     def __init__(self, api_key):
         self.client = OpenAI(
@@ -177,20 +176,19 @@ def process_query(query, rag: MedicalRAG, llm: LLM):
 
 def get_defi_intent_and_keyword(query, llm):
     """
-    Use ASI:One API to classify DeFi intent and extract a keyword.
+    Use ASI:One API to classify DeFi intent and extract a keyword (MVP version).
     
-    Intents: 'protocol_query', 'operation', 'constraint', 'risk', 'asset', 'faq', 'unknown'
+    Intents: 'chain_info', 'address', 'formula', 'swap', 'constraint', 'unknown'
     """
     prompt = (
         f"Given the DeFi query: '{query}'\n"
-        "Classify the intent as one of: 'protocol_query', 'operation', 'constraint', 'risk', 'asset', 'faq', or 'unknown'.\n"
-        "- 'protocol_query': asking about what a protocol can do (e.g., 'What can I do on Uniswap?')\n"
-        "- 'operation': asking about specific operations (e.g., 'How do I swap tokens?', 'What is required to borrow?')\n"
-        "- 'constraint': asking about limits/rules (e.g., 'What is max slippage?', 'What are safe leverage ratios?')\n"
-        "- 'risk': asking about risks/security (e.g., 'What are the risks of swapping?', 'Is this safe?')\n"
-        "- 'asset': asking about tokens/assets (e.g., 'Is USDC stable?', 'What type is ETH?')\n"
-        "- 'faq': general DeFi questions (e.g., 'What is slippage?', 'What is MEV?')\n"
-        "Extract the most relevant keyword (protocol name, operation, asset symbol, or topic).\n"
+        "Classify the intent as one of: 'chain_info', 'address', 'formula', 'swap', 'constraint', or 'unknown'.\n"
+        "- 'chain_info': asking about blockchain info (e.g., 'What is Base chain ID?')\n"
+        "- 'address': asking about token or protocol addresses (e.g., 'What is USDC address on Base?')\n"
+        "- 'formula': asking about calculations (e.g., 'How to calculate slippage?')\n"
+        "- 'swap': asking about swap operations (e.g., 'Buy USDC to ETH', 'How to swap on Uniswap?')\n"
+        "- 'constraint': asking about limits (e.g., 'What is max price impact?')\n"
+        "Extract the most relevant keyword.\n"
         "Return *only* the result in JSON format like this, with no additional text:\n"
         "{\n"
         "  \"intent\": \"<classified_intent>\",\n"
@@ -206,42 +204,36 @@ def get_defi_intent_and_keyword(query, llm):
         return "unknown", None
 
 def generate_defi_knowledge_response(query, intent, keyword, llm):
-    """Use ASI:One to generate a response for new DeFi knowledge based on intent."""
-    if intent == "protocol_query":
+    """Use ASI:One to generate a response for new DeFi knowledge based on intent (MVP version)."""
+    if intent == "chain_info":
         prompt = (
             f"Query: '{query}'\n"
-            f"The protocol '{keyword}' is not in my knowledge base. Suggest plausible operations it might support.\n"
-            "Return *only* comma-separated operation names, no additional text."
+            f"Provide the chain ID for '{keyword}' blockchain.\n"
+            "Return *only* the chain ID number, no additional text."
         )
-    elif intent == "operation":
+    elif intent == "address":
         prompt = (
             f"Query: '{query}'\n"
-            f"The operation '{keyword}' has no details in my knowledge base. Suggest required parameters for this DeFi operation.\n"
+            f"Provide the canonical address for '{keyword}' on the specified blockchain.\n"
+            "Return *only* the Ethereum address (0x...), no additional text."
+        )
+    elif intent == "formula":
+        prompt = (
+            f"Query: '{query}'\n"
+            f"Provide the formula for calculating '{keyword}' in DeFi.\n"
+            "Return *only* the formula as a simple equation, no additional text."
+        )
+    elif intent == "swap":
+        prompt = (
+            f"Query: '{query}'\n"
+            "Provide required parameters for executing a token swap.\n"
             "Return *only* comma-separated parameter names, no additional text."
         )
     elif intent == "constraint":
         prompt = (
             f"Query: '{query}'\n"
-            f"No constraints found for '{keyword}'. Suggest appropriate DeFi constraints (e.g., slippage limits, leverage ratios).\n"
-            "Return *only* the constraint in format 'constraint_type:value', no additional text."
-        )
-    elif intent == "risk":
-        prompt = (
-            f"Query: '{query}'\n"
-            f"No risks documented for '{keyword}'. Identify plausible DeFi/security risks.\n"
-            "Return *only* the risk description, no additional text."
-        )
-    elif intent == "asset":
-        prompt = (
-            f"Query: '{query}'\n"
-            f"The asset '{keyword}' classification is unknown. Is it a stablecoin, volatile asset, or LST?\n"
-            "Return *only* 'stable', 'volatile', or 'lst', no additional text."
-        )
-    elif intent == "faq":
-        prompt = (
-            f"Query: '{query}'\n"
-            "This is a new DeFi FAQ not in my knowledge base. Provide a concise, accurate answer.\n"
-            "Return *only* the answer, no additional text."
+            f"Provide the maximum safe limit for '{keyword}' in DeFi swaps.\n"
+            "Return *only* a percentage value, no additional text."
         )
     else:
         return None
@@ -249,10 +241,12 @@ def generate_defi_knowledge_response(query, intent, keyword, llm):
 
 def process_defi_query(query, rag: DefiRAG, llm: LLM):
     """
-    Process a DeFi query using DefiRAG and LLM.
+    Process a DeFi query using DefiRAG and LLM (MVP version).
     
-    This function demonstrates how to use the DeFi knowledge graph for
-    answering queries and can be extended for agent evaluation.
+    Supports 3 evaluation metrics:
+    - Correctness: Chain info, addresses, formulas
+    - Capabilities: Swap operations
+    - Domain: Price impact constraints
     
     Args:
         query: User query string
@@ -266,162 +260,82 @@ def process_defi_query(query, rag: DefiRAG, llm: LLM):
     print(f"[DeFi] Intent: {intent}, Keyword: {keyword}")
     prompt = ""
 
-    if intent == "faq":
-        faq_answer = rag.query_faq(query)
-        if not faq_answer and keyword:
-            new_answer = generate_defi_knowledge_response(query, intent, keyword, llm)
-            rag.add_knowledge("faq", query, new_answer)
-            print(f"Knowledge graph updated - Added FAQ: '{query}' → '{new_answer}'")
+    if intent == "chain_info" and keyword:
+        # CORRECTNESS METRIC: Query blockchain information
+        chain_info = rag.query_chain_info(keyword)
+        if chain_info:
             prompt = (
                 f"Query: '{query}'\n"
-                f"FAQ Answer: '{new_answer}'\n"
-                "Humanize this for a DeFi assistant with a helpful, clear tone."
-            )
-        elif faq_answer:
-            prompt = (
-                f"Query: '{query}'\n"
-                f"FAQ Answer: '{faq_answer}'\n"
-                "Humanize this for a DeFi assistant with a helpful, clear tone."
-            )
-    
-    elif intent == "protocol_query" and keyword:
-        operations = rag.query_protocol_operations(keyword)
-        if not operations:
-            ops_suggestion = generate_defi_knowledge_response(query, intent, keyword, llm)
-            rag.add_knowledge("protocol", keyword, ops_suggestion)
-            print(f"Knowledge graph updated - Added protocol: '{keyword}' → '{ops_suggestion}'")
-            prompt = (
-                f"Query: '{query}'\n"
-                f"Protocol: {keyword}\n"
-                f"Supported Operations: {ops_suggestion}\n"
-                "Generate a helpful response about what this protocol can do."
+                f"Chain: {keyword}\n"
+                f"Info: {chain_info}\n"
+                "Provide a clear answer about this blockchain information."
             )
         else:
-            # Get additional context for each operation
-            operation_details = []
-            for op in operations[:3]:  # Limit to first 3 for brevity
-                constraints = rag.get_operation_constraints(op)
-                risks = rag.get_operation_risks(op)
-                operation_details.append({
-                    "operation": op,
-                    "constraints": constraints[:2] if constraints else [],
-                    "risks": risks[:1] if risks else []
-                })
-            
-            prompt = (
-                f"Query: '{query}'\n"
-                f"Protocol: {keyword}\n"
-                f"Supported Operations: {', '.join(operations)}\n"
-                f"Operation Details: {json.dumps(operation_details, indent=2)}\n"
-                "Generate a comprehensive response about this protocol's capabilities, "
-                "mentioning key operations and any important constraints or risks."
-            )
+            prompt = f"Query: '{query}'\nNo chain information found for '{keyword}'."
     
-    elif intent == "operation" and keyword:
-        # Get comprehensive operation info
-        op_info = rag.get_comprehensive_operation_info(keyword)
+    elif intent == "address" and keyword:
+        # CORRECTNESS METRIC: Query token/protocol addresses
+        # Try token address first
+        token_address = rag.query_token_address(keyword)
+        protocol_address = rag.query_protocol_address(keyword)
         
-        if not op_info["protocols"] and not op_info["requirements"]:
-            # No knowledge about this operation
-            new_info = generate_defi_knowledge_response(query, intent, keyword, llm)
-            rag.add_knowledge("requires", keyword, new_info)
-            print(f"Knowledge graph updated - Added operation requirements: '{keyword}' → '{new_info}'")
+        if token_address or protocol_address:
+            address = token_address or protocol_address
             prompt = (
                 f"Query: '{query}'\n"
-                f"Operation: {keyword}\n"
-                f"Requirements: {new_info}\n"
-                "Explain this DeFi operation and its requirements."
+                f"Item: {keyword}\n"
+                f"Address: {address}\n"
+                "Provide the requested address clearly."
             )
         else:
+            prompt = f"Query: '{query}'\nNo address found for '{keyword}'."
+    
+    elif intent == "formula" and keyword:
+        # CORRECTNESS METRIC: Query calculation formulas
+        formula = rag.query_formula(keyword)
+        if formula:
             prompt = (
                 f"Query: '{query}'\n"
-                f"Operation: {keyword}\n"
-                f"Supported by Protocols: {', '.join(op_info['protocols']) if op_info['protocols'] else 'multiple protocols'}\n"
-                f"Required Parameters: {', '.join(op_info['requirements']) if op_info['requirements'] else 'none specified'}\n"
-                f"Constraints: {', '.join(op_info['constraints']) if op_info['constraints'] else 'none specified'}\n"
-                f"Risks: {', '.join(op_info['risks']) if op_info['risks'] else 'none documented'}\n"
-                f"Best Practices: {', '.join(op_info['best_practices']) if op_info['best_practices'] else 'none documented'}\n"
-                "Generate a comprehensive explanation of this operation, including requirements, "
-                "constraints, risks, and best practices. Be clear and educational."
+                f"Formula for {keyword}: {formula}\n"
+                "Explain this formula clearly."
             )
+        else:
+            prompt = f"Query: '{query}'\nNo formula found for '{keyword}'."
+    
+    elif intent == "swap" and keyword:
+        # CAPABILITIES METRIC: Query swap operation details
+        operations = rag.query_protocol_operations("uniswap-v3")
+        requirements = rag.get_operation_requirements("swap")
+        outputs = rag.get_operation_outputs("swap")
+        
+        prompt = (
+            f"Query: '{query}'\n"
+            f"Protocol: Uniswap V3\n"
+            f"Operation: swap\n"
+            f"Required Parameters: {', '.join(requirements) if requirements else 'none'}\n"
+            f"Expected Outputs: {', '.join(outputs) if outputs else 'none'}\n"
+            "Explain how to execute this swap operation."
+        )
     
     elif intent == "constraint" and keyword:
-        # Determine if keyword is an operation or parameter
-        constraints = rag.get_operation_constraints(keyword)
+        # DOMAIN METRIC: Query price impact constraints
+        constraints = rag.get_operation_constraints("swap")
+        best_practices = rag.get_best_practices("swap")
         
-        if not constraints:
-            new_constraint = generate_defi_knowledge_response(query, intent, keyword, llm)
-            rag.add_knowledge("constraint", keyword, new_constraint)
-            print(f"Knowledge graph updated - Added constraint: '{keyword}' → '{new_constraint}'")
-            prompt = (
-                f"Query: '{query}'\n"
-                f"Topic: {keyword}\n"
-                f"Constraint: {new_constraint}\n"
-                "Explain this DeFi constraint and why it's important."
-            )
-        else:
+        if constraints:
             parsed_constraints = [rag.parse_constraint(c) for c in constraints]
             prompt = (
                 f"Query: '{query}'\n"
                 f"Topic: {keyword}\n"
                 f"Constraints: {json.dumps(parsed_constraints, indent=2)}\n"
-                "Explain these DeFi constraints, their purposes, and recommended safe values."
-            )
-    
-    elif intent == "risk" and keyword:
-        risks = rag.get_operation_risks(keyword)
-        best_practices = rag.get_best_practices(keyword)
-        
-        if not risks:
-            new_risk = generate_defi_knowledge_response(query, intent, keyword, llm)
-            rag.add_knowledge("risk", keyword, new_risk)
-            print(f"Knowledge graph updated - Added risk: '{keyword}' → '{new_risk}'")
-            prompt = (
-                f"Query: '{query}'\n"
-                f"Topic: {keyword}\n"
-                f"Risks: {new_risk}\n"
-                "Explain these risks and how to mitigate them."
+                f"Best Practices: {', '.join(best_practices) if best_practices else 'none'}\n"
+                "Explain these DeFi constraints and why they matter."
             )
         else:
-            prompt = (
-                f"Query: '{query}'\n"
-                f"Topic: {keyword}\n"
-                f"Risks: {', '.join(risks)}\n"
-                f"Best Practices: {', '.join(best_practices) if best_practices else 'none documented'}\n"
-                "Explain these DeFi risks clearly and provide actionable mitigation strategies."
-            )
-    
-    elif intent == "asset" and keyword:
-        asset_type = rag.query_asset_type(keyword)
-        
-        if not asset_type:
-            new_type = generate_defi_knowledge_response(query, intent, keyword, llm)
-            rag.add_knowledge("asset-type", keyword, new_type)
-            print(f"Knowledge graph updated - Added asset type: '{keyword}' → '{new_type}'")
-            prompt = (
-                f"Query: '{query}'\n"
-                f"Asset: {keyword}\n"
-                f"Type: {new_type}\n"
-                "Explain this asset's characteristics and risk profile."
-            )
-        else:
-            # Provide context based on asset type
-            type_descriptions = {
-                "stable": "stablecoin (low volatility, pegged to fiat)",
-                "volatile": "volatile crypto asset (high price variability)",
-                "lst": "liquid staking token (staked asset with DeFi utility)"
-            }
-            description = type_descriptions.get(asset_type, asset_type)
-            
-            prompt = (
-                f"Query: '{query}'\n"
-                f"Asset: {keyword}\n"
-                f"Type: {description}\n"
-                "Explain this asset type, its characteristics, and appropriate use cases in DeFi."
-            )
+            prompt = f"Query: '{query}'\nNo constraints found for '{keyword}'."
     
     if not prompt:
-        prompt = f"Query: '{query}'\nNo specific DeFi info found. Offer general DeFi assistance."
+        prompt = f"Query: '{query}'\nNo specific DeFi info found. Offer general assistance."
 
     prompt += "\nFormat response as: 'Selected Question: <question>' on first line, 'Humanized Answer: <response>' on second."
     response = llm.create_completion(prompt)
@@ -438,24 +352,22 @@ def process_defi_query(query, rag: DefiRAG, llm: LLM):
 
 def calculate_evaluation_score(metric_scores):
     """
-    Calculate final evaluation score based on multiple metric scores.
+    Calculate final evaluation score based on 3 metric scores (MVP version).
     
     Implements the axiom: "Confident but wrong is worse than low-confidence that is right"
     
     Args:
         metric_scores: Dict of {metric_name: {score, confidence, evidence, failures}}
+        Expected keys: 'correctness', 'capabilities', 'domain'
         
     Returns:
         Final attestation object ready for signing
     """
+    # MVP weights aligned with test plan
     weights = {
-        "capability": 0.15,
-        "functional": 0.20,
-        "domain": 0.20,
-        "operational": 0.15,
-        "security": 0.20,
-        "robustness": 0.05,
-        "explainability": 0.05
+        "correctness": 0.50,    # Base chain facts, addresses, formulas
+        "capabilities": 0.35,   # Swap execution on Uniswap V3
+        "domain": 0.15          # Price impact awareness
     }
     
     effective_scores = {}
@@ -499,7 +411,7 @@ def calculate_evaluation_score(metric_scores):
         grade = "F"
     
     return {
-        "evaluator": "truth-swarm-metta-v1",
+        "evaluator": "truth-swarm-metta-mvp",
         "timestamp": None,  # Should be set by caller
         "final_score": round(final_score, 2),
         "overall_confidence": round(overall_confidence, 2),
@@ -507,5 +419,5 @@ def calculate_evaluation_score(metric_scores):
         "metrics": metric_scores,
         "effective_scores": {k: round(v, 2) for k, v in effective_scores.items()},
         "weights": weights,
-        "attestation_version": "1.0.0"
+        "attestation_version": "1.0.0-mvp"
     }

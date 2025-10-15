@@ -5,35 +5,106 @@ from hyperon import MeTTa, E, S, ValueAtom
 (WIP)
 class DefiRAG:
     """
-    Retrieval-Augmented Generation class for DeFi knowledge graph queries.
+    Minimal RAG for DeFi agent evaluation (MVP/POC version).
     
-    Provides methods to query the DeFi knowledge graph for:
-    - Protocol capabilities
-    - Operation requirements and constraints
-    - Security risks and best practices
-    - Asset classifications
-    - FAQ responses
+    Supports 3 evaluation metrics:
+    1. Correctness: Query chain info, addresses, formulas
+    2. Capabilities: Query protocol operations and requirements
+    3. Domain Knowledge: Query price impact constraints
     """
     
     def __init__(self, metta_instance: MeTTa):
         self.metta = metta_instance
     
     # ========================================
-    # CAPABILITY QUERIES
+    # CORRECTNESS METRIC QUERIES
+    # ========================================
+    
+    def query_chain_info(self, chain_name):
+        """
+        Get chain information (e.g., chainId for Base).
+        
+        Args:
+            chain_name: Chain name (e.g., "base")
+            
+        Returns:
+            Chain info string (e.g., "chainId:8453") or None
+        """
+        chain_name = chain_name.strip('"')
+        query_str = f'!(match &self (chain {chain_name} $info) $info)'
+        results = self.metta.run(query_str)
+        print(f"[DefiRAG] Query: {query_str}")
+        print(f"[DefiRAG] Results: {results}")
+        
+        return results[0][0].get_object().value if results and results[0] else None
+    
+    def query_token_address(self, token_chain):
+        """
+        Get canonical token address on specific chain.
+        
+        Args:
+            token_chain: Token-chain combo (e.g., "USDC-base")
+            
+        Returns:
+            Token address or None
+        """
+        token_chain = token_chain.strip('"')
+        query_str = f'!(match &self (token-address {token_chain} $address) $address)'
+        results = self.metta.run(query_str)
+        print(f"[DefiRAG] Query: {query_str}")
+        print(f"[DefiRAG] Results: {results}")
+        
+        return results[0][0].get_object().value if results and results[0] else None
+    
+    def query_protocol_address(self, protocol_chain):
+        """
+        Get protocol contract address on specific chain.
+        
+        Args:
+            protocol_chain: Protocol-chain combo (e.g., "uniswap-v3-base")
+            
+        Returns:
+            Protocol address or None
+        """
+        protocol_chain = protocol_chain.strip('"')
+        query_str = f'!(match &self (protocol-address {protocol_chain} $address) $address)'
+        results = self.metta.run(query_str)
+        print(f"[DefiRAG] Query: {query_str}")
+        print(f"[DefiRAG] Results: {results}")
+        
+        return results[0][0].get_object().value if results and results[0] else None
+    
+    def query_formula(self, formula_name):
+        """
+        Get formula/calculation (e.g., slippage calculation).
+        
+        Args:
+            formula_name: Formula name (e.g., "slippage")
+            
+        Returns:
+            Formula string or None
+        """
+        formula_name = formula_name.strip('"')
+        query_str = f'!(match &self (formula {formula_name} $formula) $formula)'
+        results = self.metta.run(query_str)
+        print(f"[DefiRAG] Query: {query_str}")
+        print(f"[DefiRAG] Results: {results}")
+        
+        return results[0][0].get_object().value if results and results[0] else None
+    
+    # ========================================
+    # CAPABILITIES METRIC QUERIES
     # ========================================
     
     def query_protocol_operations(self, protocol):
         """
-        Find all operations supported by a protocol.
-        
-        Used for CAPABILITY evaluation: verify if agent correctly claims
-        what operations a protocol supports.
+        Find operations supported by a protocol.
         
         Args:
-            protocol: Protocol name (e.g., "uniswap-v3", "aave-v3")
+            protocol: Protocol name (e.g., "uniswap-v3")
             
         Returns:
-            List of operation names supported by the protocol
+            List of operation names
         """
         protocol = protocol.strip('"')
         query_str = f'!(match &self (protocol {protocol} $operation) $operation)'
@@ -44,40 +115,12 @@ class DefiRAG:
         unique_operations = list(set(str(r[0]) for r in results if r and len(r) > 0)) if results else []
         return unique_operations
     
-    def query_protocols_for_operation(self, operation):
-        """
-        Find all protocols that support a given operation.
-        
-        Used for routing and capability assessment.
-        
-        Args:
-            operation: Operation name (e.g., "swap", "borrow")
-            
-        Returns:
-            List of protocol names that support the operation
-        """
-        operation = operation.strip('"')
-        query_str = f'!(match &self (protocol $protocol {operation}) $protocol)'
-        results = self.metta.run(query_str)
-        print(f"[DefiRAG] Query: {query_str}")
-        print(f"[DefiRAG] Results: {results}")
-        
-        unique_protocols = list(set(str(r[0]) for r in results if r and len(r) > 0)) if results else []
-        return unique_protocols
-    
-    # ========================================
-    # FUNCTIONAL CORRECTNESS QUERIES
-    # ========================================
-    
     def get_operation_requirements(self, operation):
         """
-        Find required parameters for an operation.
-        
-        Used for FUNCTIONAL CORRECTNESS evaluation: verify agent includes
-        all required parameters when executing operations.
+        Get required parameters for an operation.
         
         Args:
-            operation: Operation name (e.g., "swap", "borrow")
+            operation: Operation name (e.g., "swap")
             
         Returns:
             List of required parameter strings
@@ -92,9 +135,7 @@ class DefiRAG:
     
     def get_operation_outputs(self, operation):
         """
-        Find expected outputs for an operation.
-        
-        Used for FUNCTIONAL CORRECTNESS: verify agent returns expected outputs.
+        Get expected outputs for an operation.
         
         Args:
             operation: Operation name
@@ -111,21 +152,18 @@ class DefiRAG:
         return [r[0].get_object().value for r in results if r and len(r) > 0] if results else []
     
     # ========================================
-    # DOMAIN CORRECTNESS QUERIES
+    # DOMAIN KNOWLEDGE QUERIES
     # ========================================
     
     def get_operation_constraints(self, operation):
         """
-        Find financial/domain constraints for an operation.
-        
-        Used for DOMAIN CORRECTNESS evaluation: verify agent respects
-        DeFi-specific rules (slippage limits, leverage ratios, etc.).
+        Get domain constraints for an operation (e.g., price impact limits).
         
         Args:
             operation: Operation name
             
         Returns:
-            List of constraint strings (e.g., "slippage_max:5.0")
+            List of constraint strings (e.g., "price_impact_max:10.0")
         """
         operation = operation.strip('"')
         query_str = f'!(match &self (constraint {operation} $constraint) $constraint)'
@@ -135,74 +173,9 @@ class DefiRAG:
         
         return [r[0].get_object().value for r in results if r and len(r) > 0] if results else []
     
-    def parse_constraint(self, constraint_string):
-        """
-        Parse a constraint string into key-value pairs.
-        
-        Args:
-            constraint_string: String like "slippage_max:5.0"
-            
-        Returns:
-            Tuple of (constraint_type, value)
-        """
-        if ':' in constraint_string:
-            key, value = constraint_string.split(':', 1)
-            try:
-                # Try to convert to float if possible
-                value = float(value)
-            except ValueError:
-                pass
-            return (key, value)
-        return (constraint_string, None)
-    
-    def get_constraint_value(self, operation, constraint_type):
-        """
-        Get specific constraint value for an operation.
-        
-        Args:
-            operation: Operation name
-            constraint_type: Constraint key (e.g., "slippage_max")
-            
-        Returns:
-            Constraint value or None
-        """
-        constraints = self.get_operation_constraints(operation)
-        for constraint_str in constraints:
-            key, value = self.parse_constraint(constraint_str)
-            if key == constraint_type:
-                return value
-        return None
-    
-    # ========================================
-    # SECURITY & SAFETY QUERIES
-    # ========================================
-    
-    def get_operation_risks(self, operation):
-        """
-        Find security risks associated with an operation.
-        
-        Used for SECURITY evaluation: verify agent is aware of and
-        mitigates known risks.
-        
-        Args:
-            operation: Operation name
-            
-        Returns:
-            List of risk strings (e.g., "mev:frontrun,sandwich")
-        """
-        operation = operation.strip('"')
-        query_str = f'!(match &self (risk {operation} $risk) $risk)'
-        results = self.metta.run(query_str)
-        print(f"[DefiRAG] Query: {query_str}")
-        print(f"[DefiRAG] Results: {results}")
-        
-        return [r[0].get_object().value for r in results if r and len(r) > 0] if results else []
-    
     def get_best_practices(self, operation):
         """
-        Find security best practices for an operation.
-        
-        Used for SECURITY evaluation: verify agent follows best practices.
+        Get best practices for an operation.
         
         Args:
             operation: Operation name
@@ -218,15 +191,32 @@ class DefiRAG:
         
         return [r[0].get_object().value for r in results if r and len(r) > 0] if results else []
     
+    def parse_constraint(self, constraint_string):
+        """
+        Parse a constraint string into key-value pairs.
+        
+        Args:
+            constraint_string: String like "price_impact_max:10.0"
+            
+        Returns:
+            Tuple of (constraint_type, value)
+        """
+        if ':' in constraint_string:
+            key, value = constraint_string.split(':', 1)
+            try:
+                value = float(value)
+            except ValueError:
+                pass
+            return (key, value)
+        return (constraint_string, None)
+    
     # ========================================
-    # DOMAIN KNOWLEDGE QUERIES
+    # SUPPORTING QUERIES
     # ========================================
     
     def query_asset_type(self, asset):
         """
-        Find the classification of an asset (stable, volatile, lst).
-        
-        Used for applying appropriate constraints based on asset risk profile.
+        Get asset classification (stable, volatile).
         
         Args:
             asset: Asset symbol (e.g., "USDC", "ETH")
@@ -242,77 +232,13 @@ class DefiRAG:
         
         return str(results[0][0]) if results and results[0] else None
     
-    def query_protocol_tvl(self, protocol):
-        """
-        Find the TVL (Total Value Locked) for a protocol.
-        
-        Used for OPERATIONAL evaluation: assess protocol reliability/size.
-        
-        Args:
-            protocol: Protocol name
-            
-        Returns:
-            TVL value as string or None
-        """
-        protocol = protocol.strip('"')
-        query_str = f'!(match &self (tvl {protocol} $tvl) $tvl)'
-        results = self.metta.run(query_str)
-        print(f"[DefiRAG] Query: {query_str}")
-        print(f"[DefiRAG] Results: {results}")
-        
-        return results[0][0].get_object().value if results and results[0] else None
-    
     # ========================================
-    # FAQ QUERIES
-    # ========================================
-    
-    def query_faq(self, question):
-        """
-        Retrieve FAQ answers.
-        
-        Used for EXPLAINABILITY: provide educational context.
-        
-        Args:
-            question: Question string
-            
-        Returns:
-            Answer string or None
-        """
-        query_str = f'!(match &self (faq "{question}" $answer) $answer)'
-        results = self.metta.run(query_str)
-        print(f"[DefiRAG] Query: {query_str}")
-        print(f"[DefiRAG] Results: {results}")
-        
-        return results[0][0].get_object().value if results and results[0] else None
-    
-    # ========================================
-    # KNOWLEDGE ADDITION
-    # ========================================
-    
-    def add_knowledge(self, relation_type, subject, object_value):
-        """
-        Add new knowledge dynamically to the graph.
-        
-        Args:
-            relation_type: Type of relation (e.g., "protocol", "constraint", "risk")
-            subject: Subject of the relation
-            object_value: Object value (converted to ValueAtom if string)
-            
-        Returns:
-            Confirmation string
-        """
-        if isinstance(object_value, str):
-            object_value = ValueAtom(object_value)
-        self.metta.space().add_atom(E(S(relation_type), S(subject), object_value))
-        return f"Added {relation_type}: {subject} → {object_value}"
-    
-    # ========================================
-    # EVALUATION HELPER METHODS
+    # EVALUATION HELPERS
     # ========================================
     
     def validate_operation_params(self, operation, provided_params):
         """
-        Validate that all required parameters are provided.
+        Validate required parameters are provided.
         
         Args:
             operation: Operation name
@@ -327,13 +253,11 @@ class DefiRAG:
             return {
                 "valid": True,
                 "missing": [],
-                "message": "No requirements found for this operation"
+                "message": "No requirements found"
             }
         
-        # Parse required params (comma-separated string)
         required_params = required[0].split(',') if required else []
         
-        # Convert provided_params to set of names
         if isinstance(provided_params, dict):
             provided_set = set(provided_params.keys())
         else:
@@ -347,54 +271,44 @@ class DefiRAG:
             "missing": list(missing),
             "required": list(required_set),
             "provided": list(provided_set),
-            "message": "All required parameters provided" if not missing else f"Missing: {', '.join(missing)}"
+            "message": "Valid" if not missing else f"Missing: {', '.join(missing)}"
         }
     
-    def check_constraint_violation(self, operation, param_name, param_value):
+    def check_price_impact_violation(self, price_impact_percent):
         """
-        Check if a parameter value violates domain constraints.
+        Check if price impact exceeds domain constraints (>10%).
         
         Args:
-            operation: Operation name
-            param_name: Parameter name (e.g., "slippage")
-            param_value: Parameter value to check
+            price_impact_percent: Price impact as percentage
             
         Returns:
-            Dict with violation results
+            Dict with violation info
         """
-        constraints = self.get_operation_constraints(operation)
+        constraints = self.get_operation_constraints("swap")
         violations = []
         warnings = []
         
         for constraint_str in constraints:
             key, threshold = self.parse_constraint(constraint_str)
             
-            # Check if this constraint applies to the parameter
-            if param_name in key.lower():
+            if 'price_impact' in key:
                 try:
-                    value_float = float(param_value)
+                    impact_float = float(price_impact_percent)
                     threshold_float = float(threshold)
                     
-                    if 'max' in key and value_float > threshold_float:
+                    if 'max' in key and impact_float > threshold_float:
                         violations.append({
                             "constraint": key,
                             "threshold": threshold_float,
-                            "actual": value_float,
-                            "message": f"{param_name} exceeds maximum of {threshold_float} (got {value_float})"
+                            "actual": impact_float,
+                            "message": f"Price impact {impact_float}% exceeds max {threshold_float}%"
                         })
-                    elif 'min' in key and value_float < threshold_float:
-                        violations.append({
-                            "constraint": key,
-                            "threshold": threshold_float,
-                            "actual": value_float,
-                            "message": f"{param_name} below minimum of {threshold_float} (got {value_float})"
-                        })
-                    elif 'warn' in key and value_float > threshold_float:
+                    elif 'warn' in key and impact_float > threshold_float:
                         warnings.append({
                             "constraint": key,
                             "threshold": threshold_float,
-                            "actual": value_float,
-                            "message": f"{param_name} above warning threshold of {threshold_float} (got {value_float})"
+                            "actual": impact_float,
+                            "message": f"Price impact {impact_float}% triggers warning at {threshold_float}%"
                         })
                 except (ValueError, TypeError):
                     pass
@@ -403,28 +317,6 @@ class DefiRAG:
             "has_violations": len(violations) > 0,
             "violations": violations,
             "warnings": warnings,
-            "message": "No violations" if not violations else f"Found {len(violations)} violation(s)"
-        }
-    
-    def get_comprehensive_operation_info(self, operation):
-        """
-        Get all available information about an operation.
-        
-        Useful for generating evaluation reports.
-        
-        Args:
-            operation: Operation name
-            
-        Returns:
-            Dict with all operation information
-        """
-        return {
-            "operation": operation,
-            "protocols": self.query_protocols_for_operation(operation),
-            "requirements": self.get_operation_requirements(operation),
-            "outputs": self.get_operation_outputs(operation),
-            "constraints": self.get_operation_constraints(operation),
-            "risks": self.get_operation_risks(operation),
-            "best_practices": self.get_best_practices(operation)
+            "message": "OK" if not violations else f"Found {len(violations)} violation(s)"
         }
 
