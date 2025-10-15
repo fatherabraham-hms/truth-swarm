@@ -20,18 +20,25 @@ You are a software engineer, LLM evaluator & AI Quality Assurance Specialist. Cr
 * Evaluation score should a structured json attestation that can be signed as typedata as "proof"
 * Evaluation score should be multifaceted
     1. Correctness (Coverage & Competence)
-        What the agent claims to support and whether it actually implements it. feature-level checks (Exact Match (EM))
+        
+        What the agent claims to support and whether it actually implements it. (EM)
     2. Capabilities (Ffunctional correctness)
+        
         Does it do the exact thing that's asked (interactions / task success rate / binary pass-fail)
     3. Domain specific knowledge
+        
         DeFi -> fincanial constraints, losses/gains, slippage, ...
     4. Opertional / Performance
+        
         Latency, rate of failure succes, resource consumption 
     5. Security & Safety
+        
         How secure is the agent. Unsafe outputs, side-effect safety. Does it have vulnerabilities
     6. Robustness
+        
         How well does it handle adversarial prompts, uncommon inputs
     7. Explainability
+        
         Does it provide evidence for claims, can we trace decisions making, human-readable explanations
 * Base scoring on axiom: Confident but wrong is worse than low-confidence that is right
 
