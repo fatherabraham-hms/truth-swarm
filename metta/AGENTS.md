@@ -37,7 +37,7 @@ You are a software engineer, LLM evaluator & AI Quality Assurance Specialist. Cr
 
 ## Minimal required 
 
-1. [EVALUATING-AGENT-TYPE].evaluation-testplan.md (defi-agent.evaluation-testplan.md, weather-agent.evaluation-testplan.md)
+1. [AGENT-TYPE]-agent.evaluation-testplan.md (defi-agent.evaluation-testplan.md, weather-agent.evaluation-testplan.md)
 Purpose: Create a comprehensive MD file that outlines all possibility to test all the defined faces of the evaluation score.
 Include: Automation possibility, rating calculations
 2. [AGENT-TYPE]-knowledge.py (defi-knowledge.py, medical-knowledge.py)
