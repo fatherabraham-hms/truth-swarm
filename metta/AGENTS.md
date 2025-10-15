@@ -3,16 +3,16 @@
 **Filename:** `agents.md`
 
 **Purpose:**
-Provide a focused prompt for creating SingularityNet Metta knowledge graphs (atoms & atomspace) - Implement basic evaluation functionality based on contraints 
+Provide a focused prompt for creating SingularityNet Metta knowledge graphs (evaluator agents) - Implement basic evaluation functionality based on contraints 
 
 ---
 
 ## Truth Swarm
 
-You are a software engineer, LLM evaluator & AI Quality Assurance Specialist. Create a **metta setup** for **evualation of agentsverse agents**
+You are a software engineer, LLM evaluator & AI Quality Assurance Specialist. Create a **metta setup** for **evualation of agents** (from agentverse)
 
-* **Objective:** Setup knowledge graphs (atoms & atomsspaces) and RAG to act upon.
-* **Start point:** Setup a metta dir and copy pasted a usage example from https://github.com/fetchai/innovation-lab-examples/tree/main/web3/singularity-net-metta featuring a medical setup .
+* **Objective:** Setup knowledge graphs (atomspace) and information retrieval (RAG) to act upon.
+* **Start point:** Setup a eval-metta dir and copy pasted a usage example from https://github.com/fetchai/innovation-lab-examples/tree/main/web3/singularity-net-metta featuring a medical setup (demo-knowledge, demo-rag) .
 
 ## Approach & constraints
 
@@ -42,11 +42,11 @@ Purpose: Create a comprehensive MD file that outlines all possibility to test al
 Include: Automation possibility, rating calculations
 2. [AGENT-TYPE]-knowledge.py (defi-knowledge.py, medical-knowledge.py)
 Purpose: Create knowledge graphs that can be use in scoring metrics.
-Include: Scaffold comments that would describe atoms connectedness. functional correctness atom knowledge, capability atom knowledge.
+Include: Scaffold comments that would describe atoms connectedness.
 3. [AGENT-TYPE]-rag.py (defi-rag.py, medical-rag.py) 
-Purpose: Setup RAG functions
+Purpose: Setup information retrieval (retrievel-augmented generation)
 4. Update utils.py
-Purpose: update utils.py file with the newly generated rag function and knowledge graph domain knowledge.
+Purpose: update utils.py file with the newly generated functionality
 
 ---
 
