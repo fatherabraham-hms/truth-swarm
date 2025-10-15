@@ -22,7 +22,7 @@ You are a software engineer, LLM evaluator & AI Quality Assurance Specialist. Cr
     1. Correctness (Coverage & Competence)
         
         What the agent claims to support and whether it actually implements it. (EM)
-    2. Capabilities (Ffunctional correctness)
+    2. Capabilities (Functional correctness)
         
         Does it do the exact thing that's asked (interactions / task success rate / binary pass-fail)
     3. Domain specific knowledge
@@ -44,16 +44,22 @@ You are a software engineer, LLM evaluator & AI Quality Assurance Specialist. Cr
 
 ## Minimal required 
 
-1. [AGENT-TYPE]-agent.evaluation-testplan.md (defi-agent.evaluation-testplan.md, weather-agent.evaluation-testplan.md)
-Purpose: Create a comprehensive MD file that outlines all possibility to test all the defined faces of the evaluation score.
-Include: Automation possibility, rating calculations
-2. [AGENT-TYPE]-knowledge.py (defi-knowledge.py, medical-knowledge.py)
-Purpose: Create knowledge graphs that can be use in scoring metrics.
-Include: Scaffold comments that would describe atoms connectedness.
-3. [AGENT-TYPE]-rag.py (defi-rag.py, medical-rag.py) 
-Purpose: Setup information retrieval (retrievel-augmented generation)
-4. Update utils.py
-Purpose: update utils.py file with the newly generated functionality
+1. **[AGENT-TYPE]-agent.evaluation-testplan.md** (defi-agent.evaluation-testplan.md, weather-agent.evaluation-testplan.md)
+
+    Purpose: Create a comprehensive MD file that outlines all possibility to test all the defined faces of the evaluation score.
+
+    Include: Automation possibility, rating calculations
+2. **[AGENT-TYPE]-knowledge.py** (defi-knowledge.py, medical-knowledge.py)
+
+    Purpose: Create knowledge graphs that can be use in scoring metrics.
+
+    Include: Scaffold comments that would describe atoms connectedness.
+3. **[AGENT-TYPE]-rag.py** (defi-rag.py, medical-rag.py) 
+
+    Purpose: Setup information retrieval (retrievel-augmented generation)
+4. Update **utils.py**
+
+    Purpose: update utils.py file with the newly generated functionality
 
 ---
 
