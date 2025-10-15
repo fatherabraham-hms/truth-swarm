@@ -4,15 +4,15 @@
 **Purpose:** Evaluation framework for DeFi agents across 3 scoring metrics.
 
 - Correctness 
-- Functional 
-- Domain knowledge
+- Capbilities
+- Domain 
 
 
 ## Scoring JSON Structure
 
 ```json
 {
-  "metric": "capability|functional|domain",
+  "metric": "correctness|capabilities|domain",
   "score": 0-100,
   "confidence": 0-100,
   "effective_score": "score * (confidence/100)",
@@ -72,8 +72,8 @@
 
 | Metric | Weight | 
 |--------|--------|
-| capability | 0.50 | 
-| Functional | 0.35 | 
+| Correctness | 0.50 | 
+| Capabilites | 0.35 | 
 | Domain | 0.15 | 
 
 ## Aggregation & Final Score
