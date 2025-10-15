@@ -2,6 +2,7 @@
 import re
 from hyperon import MeTTa, E, S, ValueAtom
 
+(WIP)
 class DefiRAG:
     """
     Retrieval-Augmented Generation class for DeFi knowledge graph queries.

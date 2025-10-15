@@ -4,6 +4,7 @@ from openai import OpenAI
 from .medicalrag import MedicalRAG
 from .defirag import DefiRAG
 
+(WIP)
 class LLM:
     def __init__(self, api_key):
         self.client = OpenAI(

@@ -1,6 +1,7 @@
 # defi-knowledge.py
 from hyperon import MeTTa, E, S, ValueAtom
 
+(WIP)
 def initialize_defi_knowledge_graph(metta: MeTTa):
     """
     Initialize the MeTTa knowledge graph with DeFi protocol, operation, constraint, and risk data.
