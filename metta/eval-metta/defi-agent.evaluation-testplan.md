@@ -4,7 +4,7 @@
 **Purpose:** Evaluation framework for DeFi agents across 3 scoring metrics.
 
 - Correctness 
-- Capbilities
+- Capabilities
 - Domain 
 
 
