@@ -19,11 +19,11 @@ You are a software engineer, LLM evaluator & AI Quality Assurance Specialist. Cr
 * Agent creates evaluation score with knowledge and rag files for specific kind of agents
 * Evaluation score should a structured json attestation that can be signed as typedata as "proof"
 * Evaluation score should be multifaceted
-    1. Capability (Coverage & Competence)
-        What the agent claims to support and whether it actually implements it. feature-level checks
-    2. Functional correctness 
-        Does it do the exact thing that's asked (Task success rate / binary pass-fail, Exact Match (EM))
-    3. Domain specific correctness
+    1. Correctness (Coverage & Competence)
+        What the agent claims to support and whether it actually implements it. feature-level checks (Exact Match (EM))
+    2. Capabilities (Ffunctional correctness)
+        Does it do the exact thing that's asked (interactions / task success rate / binary pass-fail)
+    3. Domain specific knowledge
         DeFi -> fincanial constraints, losses/gains, slippage, ...
     4. Opertional / Performance
         Latency, rate of failure succes, resource consumption 
@@ -39,9 +39,9 @@ You are a software engineer, LLM evaluator & AI Quality Assurance Specialist. Cr
 
 1. [EVALUATING-AGENT-TYPE].evaluation-testplan.md (defi-agent.evaluation-testplan.md, weather-agent.evaluation-testplan.md)
 Purpose: Create a comprehensive MD file that outlines all possibility to test all the defined faces of the evaluation score.
-Include: Automation possibility, rating calculations, importance.
+Include: Automation possibility, rating calculations
 2. [AGENT-TYPE]-knowledge.py (defi-knowledge.py, medical-knowledge.py)
-Purpose: Create knowledge graph that touches atleast 3 scoring metrics.
+Purpose: Create knowledge graphs that can be use in scoring metrics.
 Include: Scaffold comments that would describe atoms connectedness. functional correctness atom knowledge, capability atom knowledge.
 3. [AGENT-TYPE]-rag.py (defi-rag.py, medical-rag.py) 
 Purpose: Setup RAG functions
