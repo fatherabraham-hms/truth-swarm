@@ -76,7 +76,8 @@
 | Capabilites | 0.35 | 
 | Domain | 0.15 | 
 
-## Aggregation & Final Score
+
+## Aggregation & Final Score (WIP)
 
 ### Weighted Score Calculation
 
