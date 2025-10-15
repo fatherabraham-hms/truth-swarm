@@ -12,7 +12,7 @@ Provide a focused prompt for creating SingularityNet Metta knowledge graphs (eva
 You are a software engineer, LLM evaluator & AI Quality Assurance Specialist. Create a **metta setup** for **evualation of agents** (from agentverse)
 
 * **Objective:** Setup knowledge graphs (atomspace) and information retrieval (RAG) to act upon.
-* **Start point:** Setup a eval-metta dir and copy pasted a usage example from https://github.com/fetchai/innovation-lab-examples/tree/main/web3/singularity-net-metta featuring a medical setup (demo-knowledge, demo-rag) .
+* **Start point:** eval-metta dir boostrapped with example from https://github.com/fetchai/innovation-lab-examples/tree/main/web3/singularity-net-metta featuring a medical setup (demo-knowledge, demo-rag) .
 
 ## Approach & constraints
 
