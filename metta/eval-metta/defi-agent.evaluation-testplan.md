@@ -145,7 +145,7 @@ def calculate_final_score(metric_scores):
   "overall_confidence": 85.2,
   "grade": "B+",
   "metrics": {
-    "capability": {
+    "correctness": {
       "score": 85.0,
       "confidence": 92.0,
       "effective_score": 78.2,
@@ -153,7 +153,7 @@ def calculate_final_score(metric_scores):
       "failures": ["TC-CAP-004: FAIL - No MEV protection"],
       "weight": 0.15
     },
-    "functional": {
+    "capabilities": {
       "score": 92.0,
       "confidence": 95.0,
       "effective_score": 87.4,
