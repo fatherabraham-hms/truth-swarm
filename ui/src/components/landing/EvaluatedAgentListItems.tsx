@@ -5,6 +5,7 @@ import {
 } from "@/components/ui/hover-card";
 import { PieChart } from "@/components/ui/pie-chart";
 import { Attestation } from "@/types/attestation";
+import Link from "next/link";
 
 export interface EvaluatedAgent {
   name: string;
@@ -45,7 +46,12 @@ export function EvaluatedAgentListItem({ agent }: EvaluatedAgentListItemProps) {
         </div>
 
         <div className="flex flex-col">
-          <span className="font-medium text-foreground">{agent.name}</span>
+          <Link
+            href={`/agents/${attestation.agent_id}`}
+            className="font-medium text-foreground hover:text-blue-600 transition-colors hover:underline"
+          >
+            {agent.name}
+          </Link>
           <span className="text-sm text-muted-foreground">
             {attestation.agent_id.substring(0, 10)}...
           </span>

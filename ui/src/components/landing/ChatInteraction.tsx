@@ -6,13 +6,15 @@ import { Input } from "../ui/input";
 
 export function ChatInteraction() {
   return (
-    <div className="my-20 flex flex-col justify center items-center text-center">
-      <span className="mt-20 mb-8 text-3xl">Query Our Evaluator Agent</span>
+    <div className="my-[30svh]">
+      <div className="flex flex-col justify center items-center text-center">
+        <span className=" text-2xl mb-8">Query Our Evaluator Agent</span>
 
-      <Input
-        className="[--radius:9999rem] max-w-md p-6"
-        placeholder="Send a message"
-      />
+        <Input
+          className="[--radius:9999rem] max-w-xl p-8"
+          placeholder="Send a message"
+        />
+      </div>
     </div>
   );
 }
