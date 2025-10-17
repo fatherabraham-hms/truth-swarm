@@ -8,8 +8,8 @@ export interface AttestationMetric {
 }
 
 export interface Attestation {
-  agent_id: string;
-  evaluator: string;
+  agent_id: string; //agent address?
+  evaluator: string; //evaluator address
   timestamp: string;
   final_score: number;
   overall_confidence: number;
@@ -19,6 +19,7 @@ export interface Attestation {
     capabilities: AttestationMetric;
     domain: AttestationMetric;
   };
+  // signature from evaluator -> create metrics based on eoa signature -> extra score = human-in-the-loop
   signature?: {
     type: string;
     domain: {
