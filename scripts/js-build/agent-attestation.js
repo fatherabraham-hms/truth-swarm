@@ -1,34 +1,10 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.attestAgentEvaluation = attestAgentEvaluation;
-const path = require("path");
-const dotenv_1 = require("dotenv");
 const eas_sdk_1 = require("@ethereum-attestation-service/eas-sdk");
 const ethers_1 = require("ethers");
 const type_1 = require("./type");
-// Configure dotenv to load .env file from the scripts directory
-// Try multiple possible paths to find the .env file
-const possiblePaths = [
-    path.resolve(process.cwd(), "scripts", ".env"), // From truth-swarm root
-    path.resolve(process.cwd(), ".env"), // From scripts directory
-    path.resolve(__dirname, "../.env"), // Relative to compiled JS
-];
-let envPath = possiblePaths.find((p) => {
-    try {
-        require("fs").accessSync(p);
-        return true;
-    }
-    catch {
-        return false;
-    }
-});
-if (!envPath) {
-    envPath = possiblePaths[0]; // fallback to first option
-}
-console.log("Loading .env from:", envPath);
-(0, dotenv_1.configDotenv)({
-    path: envPath,
-});
+const utils_1 = require("./utils");
 /**
  * Bot Attestion functionality -> port to python uAgent implementation
  * prerequisites:
@@ -41,12 +17,11 @@ console.log("Loading .env from:", envPath);
  */
 // RANDOM EXAMPLE
 async function attestAgentEvaluation(evaluationScore) {
+    const { url, pk } = (0, utils_1.envSetup)();
     // VALIDATE PK ADDRESS WITH RESOLVER CONTRACT, ADD VALIDATION LOGIC?
     const easContractAddress = "0xC2679fBD37d54388Ce493F1DB75320D236e1815e"; //SEPOLIA TESTNET
     const schemaUID = "0xcd0ab40423e8919b72b665cb563c82b895acc2b690626f2c8180e1db83f6f5bc";
     const eas = new eas_sdk_1.EAS(easContractAddress);
-    const url = process.env.SEPOLIA_RPC;
-    const pk = process.env.DT_KEY;
     if (!pk || !url)
         throw new Error(".env error");
     const provider = new ethers_1.ethers.JsonRpcProvider(url);

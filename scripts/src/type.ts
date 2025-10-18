@@ -43,3 +43,19 @@ export interface EvaluationScore {
   domainWeight: number;
   detailsCID: string;
 }
+
+// Type for the raw decoded data from EAS SDK
+export interface DecodedSchemaValue {
+  name: string;
+  type: string;
+  value: any; // Can be string, bigint, number, boolean, or complex objects
+}
+
+export interface DecodedSchemaField {
+  name: string;
+  type: string;
+  signature: string;
+  value: DecodedSchemaValue;
+}
+
+export type DecodedSchemaData = DecodedSchemaField[];

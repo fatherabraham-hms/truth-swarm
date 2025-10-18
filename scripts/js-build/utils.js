@@ -3,7 +3,11 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.extractSchemaUID = extractSchemaUID;
 exports.decodeLogs = decodeLogs;
 exports.decodeError = decodeError;
+exports.envSetup = envSetup;
+exports.createEvaluationScoreFromDecoded = createEvaluationScoreFromDecoded;
 const ethers_1 = require("ethers");
+const path = require("path");
+const dotenv_1 = require("dotenv");
 const SCHEMA_REGISTRY_ABI = [
     "event Registered(bytes32 indexed uid, address indexed registerer, SchemaRecord schema)",
 ];
@@ -148,4 +152,130 @@ function analyzeErrorParams(errorData) {
         }
     }
     return { analysis: `${paramCount} parameters detected`, parameters: params };
+}
+function envSetup() {
+    // Configure dotenv to load .env file from the scripts directory
+    // Try multiple possible paths to find the .env file
+    const possiblePaths = [
+        path.resolve(process.cwd(), "scripts", ".env"), // From truth-swarm root
+        path.resolve(process.cwd(), ".env"), // From scripts directory
+        path.resolve(__dirname, "../.env"), // Relative to compiled JS
+    ];
+    let envPath = possiblePaths.find((p) => {
+        try {
+            require("fs").accessSync(p);
+            return true;
+        }
+        catch {
+            return false;
+        }
+    });
+    if (!envPath) {
+        envPath = possiblePaths[0]; // fallback to first option
+    }
+    console.log("Loading .env from:", envPath);
+    (0, dotenv_1.configDotenv)({
+        path: envPath,
+    });
+    const url = process.env.SEPOLIA_RPC;
+    const pk = process.env.DT_KEY;
+    return { url, pk };
+}
+/**
+ * Creates an EvaluationScore object from decoded EAS attestation data
+ * @param decodedData - The decoded schema data from EAS SDK
+ * @returns A validated EvaluationScore object
+ * @throws Error if required fields are missing or validation fails
+ */
+function createEvaluationScoreFromDecoded(decodedData) {
+    // Create a map for easy field access
+    const fieldMap = new Map();
+    decodedData.forEach((field) => {
+        fieldMap.set(field.name, field.value.value);
+    });
+    // Helper to get and validate required field
+    const getField = (name, expectedType) => {
+        if (!fieldMap.has(name)) {
+            throw new Error(`Missing required field: ${name}`);
+        }
+        const value = fieldMap.get(name);
+        // Type validation
+        const actualType = typeof value === "bigint" ? "bigint" : typeof value;
+        if (expectedType === "numeric" &&
+            actualType !== "bigint" &&
+            actualType !== "number") {
+            throw new Error(`Field ${name} expected bigint or number, got ${actualType}`);
+        }
+        if (expectedType === "string" && actualType !== "string") {
+            throw new Error(`Field ${name} expected string, got ${actualType}`);
+        }
+        return value;
+    };
+    // Helper to convert BigInt or number to number with validation
+    const toNumber = (value, fieldName, max) => {
+        const num = typeof value === "bigint" ? Number(value) : value;
+        if (max !== undefined && num > max) {
+            throw new Error(`Field ${fieldName} value ${num} exceeds maximum ${max}`);
+        }
+        if (num < 0) {
+            throw new Error(`Field ${fieldName} value ${num} cannot be negative`);
+        }
+        return num;
+    };
+    // Extract and validate all fields
+    const evaluatedAgentAddress = getField("evaluatedAgentAddress", "string");
+    const evaluatorAgentAddress = getField("evaluatorAgentAddress", "string");
+    const timestamp = toNumber(getField("timestamp", "numeric"), "timestamp");
+    const finalScore = toNumber(getField("finalScore", "numeric"), "finalScore", 100);
+    const overallConfidence = toNumber(getField("overallConfidence", "numeric"), "overallConfidence", 10);
+    const grade = getField("grade", "string");
+    const correctnessScore = toNumber(getField("correctnessScore", "numeric"), "correctnessScore", 100);
+    const correctnessConfidence = toNumber(getField("correctnessConfidence", "numeric"), "correctnessConfidence", 10);
+    const correctnessEffectiveScore = toNumber(getField("correctnessEffectiveScore", "numeric"), "correctnessEffectiveScore", 100);
+    const correctnessWeight = toNumber(getField("correctnessWeight", "numeric"), "correctnessWeight", 100);
+    const capabilitiesScore = toNumber(getField("capabilitiesScore", "numeric"), "capabilitiesScore", 100);
+    const capabilitiesConfidence = toNumber(getField("capabilitiesConfidence", "numeric"), "capabilitiesConfidence", 10);
+    const capabilitiesEffectiveScore = toNumber(getField("capabilitiesEffectiveScore", "numeric"), "capabilitiesEffectiveScore", 100);
+    const capabilitiesWeight = toNumber(getField("capabilitiesWeight", "numeric"), "capabilitiesWeight", 100);
+    const domainScore = toNumber(getField("domainScore", "numeric"), "domainScore", 100);
+    const domainConfidence = toNumber(getField("domainConfidence", "numeric"), "domainConfidence", 10);
+    const domainEffectiveScore = toNumber(getField("domainEffectiveScore", "numeric"), "domainEffectiveScore", 100);
+    const domainWeight = toNumber(getField("domainWeight", "numeric"), "domainWeight", 100);
+    const detailsCID = getField("detailsCID", "string");
+    // Additional validation
+    if (evaluatedAgentAddress.length === 0) {
+        throw new Error("evaluatedAgentAddress cannot be empty");
+    }
+    if (evaluatorAgentAddress.length === 0) {
+        throw new Error("evaluatorAgentAddress cannot be empty");
+    }
+    if (detailsCID.length === 0) {
+        throw new Error("detailsCID cannot be empty");
+    }
+    // Validate weights sum to 100 (optional but good practice)
+    const totalWeight = correctnessWeight + capabilitiesWeight + domainWeight;
+    if (totalWeight !== 100) {
+        console.warn(`Warning: Total weights (${totalWeight}) do not sum to 100`);
+    }
+    return {
+        evaluatedAgentAddress,
+        evaluatorAgentAddress,
+        timestamp,
+        finalScore,
+        overallConfidence,
+        grade,
+        correctnessScore,
+        correctnessConfidence,
+        correctnessEffectiveScore,
+        correctnessWeight,
+        capabilitiesScore,
+        capabilitiesConfidence,
+        capabilitiesEffectiveScore,
+        capabilitiesWeight,
+        domainScore,
+        domainConfidence,
+        domainEffectiveScore,
+        domainWeight,
+        detailsCID,
+    };
 }
