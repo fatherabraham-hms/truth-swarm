@@ -1,33 +1,63 @@
-export interface AttestationMetric {
-  score: number;
-  confidence: number;
-  effective_score: number;
-  evidence: string[];
-  failures: string[];
-  weight: number;
+export interface Attestation {
+  uid: string;
+  attester: string;
+  recipient: string;
+  revoked: boolean;
+  revocationTime: number;
+  expirationTime: number;
+  data: any;
 }
 
-export interface Attestation {
-  agent_id: string; //agent address?
-  evaluator: string; //evaluator address
-  timestamp: string;
-  final_score: number;
-  overall_confidence: number;
+// Attestation signable by agent
+export interface AgentAttestation {
+  uid: string;
+  attester: string;
+  recipient: string;
+  revoked: boolean;
+  revocationTime: number;
+  expirationTime: number;
+  evaluationScore: EvaluationScore;
+}
+
+// Agent attestation schema (eval score) typescript interface
+export interface EvaluationScore {
+  evaluatedAgentAddress: string;
+  evaluatorAgentAddress: string;
+  timestamp: number;
+  finalScore: number;
+  overallConfidence: number;
   grade: string;
-  metrics: {
-    correctness: AttestationMetric;
-    capabilities: AttestationMetric;
-    domain: AttestationMetric;
-  };
-  // signature from evaluator -> create metrics based on eoa signature -> extra score = human-in-the-loop
-  signature?: {
-    type: string;
-    domain: {
-      name: string;
-      version: string;
-      chainId: number;
-    };
-    message: string;
-    signature: string;
-  };
+  correctnessScore: number;
+  correctnessConfidence: number;
+  correctnessEffectiveScore: number;
+  correctnessWeight: number;
+  capabilitiesScore: number;
+  capabilitiesConfidence: number;
+  capabilitiesEffectiveScore: number;
+  capabilitiesWeight: number;
+  domainScore: number;
+  domainConfidence: number;
+  domainEffectiveScore: number;
+  domainWeight: number;
+  detailsCID: string;
+}
+
+// Attestation signable by human (EOA)
+export interface HumanAttestation {
+  uid: string;
+  attester: string;
+  recipient: string;
+  revoked: boolean;
+  revocationTime: number;
+  expirationTime: number;
+  humanConfirmation: HumanConfirmation;
+}
+
+// Human attestation schema (human confirmation) typescript interface
+export interface HumanConfirmation {
+  originalAttestationUID: string;
+  verifier: string;
+  timestamp: number;
+  approved: boolean;
+  comment: string;
 }

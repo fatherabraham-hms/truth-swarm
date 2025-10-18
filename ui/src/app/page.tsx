@@ -2,7 +2,7 @@ import { Header } from "@/components/elements/Header";
 import { Footer } from "@/components/elements/Footer";
 import { MaxWidthWrapper } from "@/components/elements/MaxWidthWrapper";
 import { ChatInteraction } from "@/components/landing/ChatInteraction";
-import { EvaluatedAgentsOverview } from "@/components/landing/EvaluatdAgentsOverview";
+import { Dashboard } from "@/components/landing/Dashboard";
 
 export default function Home() {
   return (
@@ -17,7 +17,7 @@ export default function Home() {
 
           {/** Search Evaluated Agents */}
           <section>
-            <EvaluatedAgentsOverview />
+            <Dashboard />
           </section>
         </main>
         <Footer />

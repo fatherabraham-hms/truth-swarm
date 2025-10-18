@@ -1,27 +1,22 @@
 "use client";
 
-import {
-  EvaluatedAgent,
-  EvaluatedAgentListItem,
-} from "./EvaluatedAgentListItems";
+import { AgentListItem } from "./AgentListItem";
+import { Agent } from "@/types/agents";
 
-interface EvaluatedAgentsListProps {
-  filteredAgentsList: EvaluatedAgent[];
+interface AgentsListProps {
+  filteredAgentsList: Agent[];
   tabValue: string;
 }
 
-export function EvaluatedAgentsList({
-  filteredAgentsList,
-  tabValue,
-}: EvaluatedAgentsListProps) {
+export function AgentList({ filteredAgentsList, tabValue }: AgentsListProps) {
   const getTabText = (tabValue: string) => {
     switch (tabValue) {
       case "all":
-        return "Showing all evaluated agents";
-      case "account":
-        return "Showing human-verified agents only";
-      case "wip":
-        return "Showing agents currently being evaluated";
+        return "Showing all agents";
+      case "human":
+        return "Showing human-verified agents";
+      case "agent":
+        return "Showing evaluated agents";
       default:
         return "Showing evaluated agents";
     }
@@ -31,16 +26,11 @@ export function EvaluatedAgentsList({
     switch (tabValue) {
       case "all":
         return filteredAgentsList.length;
-      case "account":
-        return filteredAgentsList.filter(
-          (agent) =>
-            agent.jsonAttestation && agent.jsonAttestation.final_score >= 80
-        ).length;
-      case "wip":
-        return filteredAgentsList.filter(
-          (agent) =>
-            agent.jsonAttestation && agent.jsonAttestation.final_score > 0
-        ).length;
+      case "human":
+        return filteredAgentsList.filter((agent) => agent.humanVerified).length;
+      case "agent":
+        return filteredAgentsList.filter((agent) => agent.finalScore > 0)
+          .length;
       default:
         return filteredAgentsList.length;
     }
@@ -62,7 +52,7 @@ export function EvaluatedAgentsList({
           </div>
         ) : (
           filteredAgentsList.map((agent, index) => (
-            <EvaluatedAgentListItem key={index} agent={agent} />
+            <AgentListItem key={index} agent={agent} />
           ))
         )}
       </div>
