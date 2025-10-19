@@ -12,6 +12,7 @@ from uagents_core.contrib.protocols.chat import (
 from datetime import datetime
 from uuid import uuid4
 import random
+import re
 
 # Load environment variables from .env file
 env_path = Path(__file__).parent.parent.parent.parent / '.env'
@@ -31,7 +32,7 @@ agent = Agent(
     readme_path="README.md"
 )
 
-TEST_TARGET_AGENT_ADDRESS = "agent1qtzkq9stasjkl54js9ej604pvtcnp9l2m8s3u4mnvjcz3q4qerc5zmahxcq"
+TEST_TARGET_AGENT_ADDRESS = "agent1q282hfw3kpqzs6pqndp7hk68tpgycarqkj5pwuwyfuxsu8sm807p7pkq2er"
 
 agentsByCategory = [
     {"category": "travel", "address": "agent1q282hfw3kpqzs6pqndp7hk68tpgycarqkj5pwuwyfuxsu8sm807p7pkq2er", "wallet": "fetch1lpwf86sdz3wcs2xvx5wjl7c3vzewt8q42d24wx"},
@@ -94,20 +95,29 @@ class AIResponse(Model):
 ########## AGENT TO AGENT HANDLERS ##########
 @agent.on_message(model=ChatMessage)
 async def handle_ai_response(ctx: Context, sender: str, msg: ChatMessage):
-    ctx.logger.info(f"Received response from {sender}: {msg.text}")
-    # randomly return either "evaluated as good" or "evaluated as bad"
-    result = "Evaluated as good" if random.random() > 0.5 else "Evaluated as bad"
-    #log agent address and result
-    ctx.logger.info(f"Agent {sender} response evaluated as: {result}")
+    # Extract text content from ChatMessage
+    text_content = ""
+    for item in msg.content:
+        if isinstance(item, TextContent):
+            text_content += item.text
+    
+    ctx.logger.info(f"Received response from {sender}: {text_content[:100]}...")  # Truncate for logging
+
+    #SET AGENT COMMAND
+    if re.match(r"/agent[0-9A-Za-z]{39}/", text_content):
+        global TEST_TARGET_AGENT_ADDRESS
+        TEST_TARGET_AGENT_ADDRESS = re.match(r"/agent[0-9A-Za-z]{39}/", text_content).group(0)
+        ctx.logger.info(f"Setting TEST_TARGET_AGENT_ADDRESS to {TEST_TARGET_AGENT_ADDRESS}")
+        return
+    #PERFORM EVALUATION
+    else:
+        result = "Evaluated as good" if random.random() > 0.5 else "Evaluated as bad"
+        ctx.logger.info(f"Agent {sender} response evaluated as: {result}")
 
 ########## HUMAN TO AGENT HANDLERS ##########
 @agent.on_message(model=AIRequest, replies={AIResponse})
 async def do_evaluation(ctx: Context, sender: str, msg: AIRequest):
     ctx.logger.info(f"Received question from {sender}: {msg.question}")
-    # randomly return either "evaluated as good" or "evaluated as bad"
-    result = "Evaluated as good" if random.random() > 0.5 else "Evaluated as bad"
-    #log agent address and result
-    ctx.logger.info(f"Agent {sender} evaluated {msg.question} as {result}")
 
     message = AIResponse(text="Thanks for your response")
     await ctx.send(
