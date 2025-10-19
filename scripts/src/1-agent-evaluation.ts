@@ -7,13 +7,10 @@ export async function evaluateAgent(
   address: string,
   category: "good" | "average" | "bad" = "good"
 ) {
-  // figure out if agent has wallet attached through tests?
-  const agentWalletAddress = "0x";
-
-  // generate scores with test
-  const evaluationScore = generateEvaluationScore(address, category);
-  // evaluation should provide comprehensive details -> which test passed / failed with evidence
-  const details = { ...evaluationScore, agentWalletAddress };
+  // MOCK
+  const agentWalletAddress = "0x"; // AGENT NO CONNECTION WITH WEB3
+  const evaluationScore = generateEvaluationScore(address, category); // CALCULATED FROM TESTS
+  const details = { ...evaluationScore, agentWalletAddress }; // TEST INFORMATION
 
   return { evaluationScore, details };
 }

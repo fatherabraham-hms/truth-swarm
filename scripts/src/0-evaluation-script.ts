@@ -1,16 +1,17 @@
-import { attestAgentEvaluation } from "./agent-attestation";
+import { attestAgentEvaluation } from "./2-agent-attestation";
 import { envSetup } from "./utils";
-import { evaluateAgent } from "./agent-evaluation";
+import { evaluateAgent } from "./1-agent-evaluation";
 import { storeEvaluationIPFS } from "./ipfs-storage";
 
 /**
- * Bot Attestion functionality -> port to python uAgent implementation
+ * Bot Attestion functionality
  * prerequisites:
- *  - access to pk. cannot use viem ("RPC wallet") -> BOT INITIAL SCORE
- * agent calculates and attest to initial score, humans can verify later with a different attestation schema
+ *
+ * evaluation script (agent) calculates and attest to initial score.
+ * humans can verify later with a different attestation schema.
  * requirements:
- *  - attestation schema must have resolver contract assigned
- *      -> resolver contract must check signature against allowed evaluator list before attestion allowed?
+ *  - ethers signer connection
+ *  - agent address
  *
  */
 

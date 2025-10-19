@@ -25,13 +25,16 @@ export function createEvaluationScoreFromDecoded(
   decodedData: DecodedSchemaData
 ): EvaluationScore {
   // Create a map for easy field access
-  const fieldMap = new Map<string, any>();
+  const fieldMap = new Map<string, unknown>();
   decodedData.forEach((field) => {
     fieldMap.set(field.name, field.value.value);
   });
 
   // Helper to get and validate required field
-  const getField = (name: string, expectedType: string): any => {
+  const getField = (
+    name: string,
+    expectedType: string
+  ): bigint | number | string => {
     if (!fieldMap.has(name)) {
       throw new Error(`Missing required field: ${name}`);
     }
@@ -52,7 +55,7 @@ export function createEvaluationScoreFromDecoded(
       throw new Error(`Field ${name} expected string, got ${actualType}`);
     }
 
-    return value;
+    return value as bigint | number | string;
   };
 
   // Helper to convert BigInt or number to number with validation
@@ -80,78 +83,81 @@ export function createEvaluationScoreFromDecoded(
     "evaluatorAgentAddress",
     "string"
   ) as string;
-  const timestamp = toNumber(getField("timestamp", "numeric"), "timestamp");
+  const timestamp = toNumber(
+    getField("timestamp", "numeric") as bigint | number,
+    "timestamp"
+  );
   const finalScore = toNumber(
-    getField("finalScore", "numeric"),
+    getField("finalScore", "numeric") as bigint | number,
     "finalScore",
     100
   );
   const overallConfidence = toNumber(
-    getField("overallConfidence", "numeric"),
+    getField("overallConfidence", "numeric") as bigint | number,
     "overallConfidence",
     10
   );
   const grade = getField("grade", "string") as string;
 
   const correctnessScore = toNumber(
-    getField("correctnessScore", "numeric"),
+    getField("correctnessScore", "numeric") as bigint | number,
     "correctnessScore",
     100
   );
   const correctnessConfidence = toNumber(
-    getField("correctnessConfidence", "numeric"),
+    getField("correctnessConfidence", "numeric") as bigint | number,
     "correctnessConfidence",
     10
   );
   const correctnessEffectiveScore = toNumber(
-    getField("correctnessEffectiveScore", "numeric"),
+    getField("correctnessEffectiveScore", "numeric") as bigint | number,
     "correctnessEffectiveScore",
     100
   );
   const correctnessWeight = toNumber(
-    getField("correctnessWeight", "numeric"),
+    getField("correctnessWeight", "numeric") as bigint | number,
     "correctnessWeight",
     100
   );
 
   const capabilitiesScore = toNumber(
-    getField("capabilitiesScore", "numeric"),
+    getField("capabilitiesScore", "numeric") as bigint | number,
     "capabilitiesScore",
     100
   );
   const capabilitiesConfidence = toNumber(
-    getField("capabilitiesConfidence", "numeric"),
+    getField("capabilitiesConfidence", "numeric") as bigint | number,
     "capabilitiesConfidence",
     10
   );
   const capabilitiesEffectiveScore = toNumber(
-    getField("capabilitiesEffectiveScore", "numeric"),
+    getField("capabilitiesEffectiveScore", "numeric") as bigint | number,
     "capabilitiesEffectiveScore",
     100
   );
   const capabilitiesWeight = toNumber(
-    getField("capabilitiesWeight", "numeric"),
+    getField("capabilitiesWeight", "numeric") as bigint | number,
     "capabilitiesWeight",
     100
   );
 
   const domainScore = toNumber(
-    getField("domainScore", "numeric"),
+    getField("domainScore", "numeric") as bigint | number,
     "domainScore",
     100
   );
   const domainConfidence = toNumber(
-    getField("domainConfidence", "numeric"),
+    getField("domainConfidence", "numeric") as bigint | number,
     "domainConfidence",
     10
   );
   const domainEffectiveScore = toNumber(
-    getField("domainEffectiveScore", "numeric"),
+    getField("domainEffectiveScore", "numeric") as bigint | number,
     "domainEffectiveScore",
     100
   );
   const domainWeight = toNumber(
-    getField("domainWeight", "numeric"),
+    getField("domainWeight", "numeric") as bigint | number,
     "domainWeight",
     100
   );
@@ -205,13 +211,13 @@ export function createHumanConfirmationFromDecoded(
   decodedData: DecodedSchemaData
 ): HumanConfirmation {
   // Create a map for easy field access
-  const fieldMap = new Map<string, any>();
+  const fieldMap = new Map<string, unknown>();
   decodedData.forEach((field) => {
     fieldMap.set(field.name, field.value.value);
   });
 
   // Helper to get and validate required field
-  const getField = (name: string, expectedType: string): any => {
+  const getField = (name: string, expectedType: string): unknown => {
     if (!fieldMap.has(name)) {
       throw new Error(`Missing required field: ${name}`);
     }
@@ -253,7 +259,10 @@ export function createHumanConfirmationFromDecoded(
     "string"
   ) as string;
   const verifier = getField("verifier", "string") as string;
-  const timestamp = toNumber(getField("timestamp", "numeric"), "timestamp");
+  const timestamp = toNumber(
+    getField("timestamp", "numeric") as bigint | number,
+    "timestamp"
+  );
   const approved = getField("approved", "boolean") as boolean;
   const comment = getField("comment", "string") as string;
 

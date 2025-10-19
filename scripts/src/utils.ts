@@ -380,6 +380,33 @@ export function createEvaluationScoreFromDecoded(
   };
 }
 
+/**
+ * Encodes evaluation score data according to the EAS schema
+ *
+ * The schema string is parsed to extract types using the algorithm:
+ *   encodingSchema.split(", ").map(field => field.trim().split(" ")[0])
+ *
+ * @example
+ * // Input schema:
+ * // "string evaluatedAgentAddress, string evaluatorAgentAddress, uint256 timestamp, ..."
+ *
+ * // Parsed types array:
+ * // ["string", "string", "uint256", "uint256", "uint8", "string", "uint256", "uint8",
+ * //  "uint256", "uint8", "uint256", "uint8", "uint256", "uint8", "uint256", "uint8",
+ * //  "uint256", "uint8", "string"]
+ *
+ * // Values array (matching the types):
+ * // ["0x1234...", "0x0987...", 1729324800, 85, 8, "B+", 90, 9, 81, 40,
+ * //  80, 7, 56, 30, 85, 8, 68, 30, "bafkreih5aznjvttude6c..."]
+ *
+ * // ABI Encoder then encodes these 19 values according to their types:
+ * // - Strings: stored with offset pointers and length prefixes
+ * // - uint256: padded to 32 bytes
+ * // - uint8: padded to 32 bytes (same as uint256 in encoding)
+ *
+ * @param evaluationScore - The evaluation score data to encode
+ * @returns Hex-encoded string suitable for EAS attestation
+ */
 export function encodeAttestationData(
   evaluationScore: EvaluationScore
 ): string {

@@ -11,13 +11,14 @@ import {
 import { encodingSchema } from "./type";
 
 /**
- * Bot Attestion functionality -> port to python uAgent implementation
+ * Bot Attestion functionality
  * prerequisites:
- *  - access to pk. cannot use viem ("RPC wallet") -> BOT INITIAL SCORE
+ *  - access to pk. cannot use viem ("RPC wallet") -> AGENT INITIAL ATTESTATION OF SCORE
  * agent calculates and attest to initial score, humans can verify later with a different attestation schema
  * requirements:
  *  - attestation schema must have resolver contract assigned
  *      -> resolver contract must check signature against allowed evaluator list before attestion allowed?
+ *  - implemented resolver contract with basic whitelisting
  *
  */
 const AGENT_ATTESTATION_SCHEMA_UID =
@@ -35,8 +36,6 @@ export async function attestAgentEvaluation(
   const provider = new ethers.JsonRpcProvider(url);
   const signer = new ethers.Wallet(pk, provider);
 
-  const encodedData = encodeAttestationData(evaluationScore);
-
   let recipient;
   if (
     evaluatedAgentWalletAddress === ethers.ZeroAddress ||
@@ -48,41 +47,31 @@ export async function attestAgentEvaluation(
     recipient = evaluatedAgentWalletAddress;
   }
 
-  const attestationRequest = {
+  // ENCODE THE EVALUATION SCORE IN THE ATTESTATION TUPLE
+  const encodedData = encodeAttestationData(evaluationScore);
+
+  // ABI TUPLE
+  const attestationTuple = {
     schema: AGENT_ATTESTATION_SCHEMA_UID,
     data: {
-      recipient: recipient,
-      expirationTime: 0, // uint63
+      recipient: recipient, //Change for a schema field?
+      expirationTime: 0,
       revocable: false,
-      refUID: ethers.ZeroHash, // bytes31 - using ZeroHash for empty reference
+      refUID: ethers.ZeroHash,
       data: encodedData,
-      value: 0, // uint255 - no ETH value being sent with attestation
+      value: 0,
     },
   };
 
-  const attestFunction = EAS_INTERFACE.getFunction("attest");
-  if (!attestFunction) {
-    throw new Error("attest function not found in ABI");
-  }
-  const functionSelector = attestFunction.selector;
-  console.log(functionSelector);
-
-  const abiCoder = ethers.AbiCoder.defaultAbiCoder();
-  const encodedParams = abiCoder.encode(
-    [
-      "tuple(bytes32 schema, tuple(address recipient, uint64 expirationTime, bool revocable, bytes32 refUID, bytes data, uint256 value) data)",
-    ],
-    [attestationRequest]
-  );
-
-  //functionSelector + encodedParams.slice(2); // Remove '0x' from encoded params
-  const callData = ethers.concat([functionSelector, encodedParams]);
+  // ENCODE THE TRANSACTION CALLDATA WITH FUNCTION SELECTOR
+  const callData = encodeAttestTxCallData(attestationTuple);
 
   console.log("Submitting attestation to EAS contract...");
   console.log("Schema:", AGENT_ATTESTATION_SCHEMA_UID);
   console.log("Recipient:", recipient);
   console.log("Attester:", signer.address);
 
+  // CREATE TRANSACTION
   const txRequest: ethers.TransactionRequest = {
     to: EAS_CONTRACT_ADDRESS,
     data: callData,
@@ -97,17 +86,14 @@ export async function attestAgentEvaluation(
     console.log(error);
   }
 
-  // Send the transaction
   const tx = await signer.sendTransaction(txRequest);
 
   console.log("Transaction sent:", tx.hash);
 
-  // Wait for confirmation
   const receipt = await tx.wait();
 
   console.log("Attestation confirmed in block:", receipt?.blockNumber);
 
-  // Parse the Attested event from the receipt to get the UID
   if (receipt) {
     const attestedEvent = receipt.logs
       .map((log) => {
@@ -130,6 +116,27 @@ export async function attestAgentEvaluation(
   }
 
   return receipt;
+}
+
+function encodeAttestTxCallData(attestationRequest: any) {
+  const attestFunction = EAS_INTERFACE.getFunction("attest");
+  if (!attestFunction) {
+    throw new Error("attest function not found in ABI");
+  }
+  const functionSelector = attestFunction.selector;
+
+  const abiCoder = ethers.AbiCoder.defaultAbiCoder();
+  const encodedParams = abiCoder.encode(
+    [
+      "tuple(bytes32 schema, tuple(address recipient, uint64 expirationTime, bool revocable, bytes32 refUID, bytes data, uint256 value) data)",
+    ],
+    [attestationRequest]
+  );
+
+  //functionSelector + encodedParams.slice(2); // Remove '0x' from encoded params
+  const callData = ethers.concat([functionSelector, encodedParams]);
+
+  return callData;
 }
 
 export async function attestAgentEvaluationSDK(

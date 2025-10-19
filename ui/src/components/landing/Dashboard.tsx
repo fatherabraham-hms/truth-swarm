@@ -85,7 +85,7 @@ export function Dashboard() {
     agents.filter((agent) => agent.finalScore > 0);
 
   return (
-    <div className="px-10">
+    <div className="px-10 mx-auto">
       {/** Search & Filter */}
       <h2 className="text-xl text-foreground mb-4 ">Evaluated Agents</h2>
 

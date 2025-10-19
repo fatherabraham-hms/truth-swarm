@@ -2,7 +2,7 @@
 export interface DecodedSchemaValue {
   name: string;
   type: string;
-  value: any; // Can be string, bigint, number, boolean, or complex objects
+  value: unknown; // Can be string, bigint, number, boolean, or complex objects
 }
 
 export interface DecodedSchemaField {

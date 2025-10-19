@@ -5,7 +5,7 @@ export interface Attestation {
   revoked: boolean;
   revocationTime: number;
   expirationTime: number;
-  data: any;
+  data: unknown;
 }
 
 // Attestation signable by agent

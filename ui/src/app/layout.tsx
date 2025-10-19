@@ -1,7 +1,9 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
+
 import QueryContext from "@/context/QueryContext";
+import WagmiContext from "@/context/WagmiContext";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -15,7 +17,8 @@ const geistMono = Geist_Mono({
 
 export const metadata: Metadata = {
   title: "Truth Swarm",
-  description: "Agentic verification & scoring mechanism for consumer protections",
+  description:
+    "Agentic verification & scoring mechanism for consumer protections",
 };
 
 export default function RootLayout({
@@ -29,7 +32,7 @@ export default function RootLayout({
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
         <QueryContext>
-          {children}
+          <WagmiContext>{children}</WagmiContext>
         </QueryContext>
       </body>
     </html>

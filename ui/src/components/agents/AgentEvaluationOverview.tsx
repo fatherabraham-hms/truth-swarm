@@ -13,6 +13,8 @@ import {
 } from "@/hooks/useAttestation";
 import { fetchAgentverseInfo } from "@/actions/agentverse";
 import { AgentVerseInfo } from "@/types/agents";
+import { HumanAttestationDialog } from "./HumanAttestationDialog";
+import { HumanAttestationsOverview } from "./HumanAttestationsOverview";
 
 interface AgentEvaluationOverviewProps {
   address: string;
@@ -188,58 +190,19 @@ export function AgentEvaluationOverview({
         </div>
       </div>
 
-      {/* Metrics Breakdown */}
-      <div className="space-y-4">
-        <h2 className="text-2xl font-semibold">Performance Metrics</h2>
-
-        {metrics.map((metric) => (
-          <div
-            key={metric.name}
-            className="p-6 border border-border rounded-lg bg-card space-y-4"
-          >
-            <div className="flex justify-between items-center">
-              <h3 className="text-xl font-semibold">{metric.name}</h3>
-              <div className="text-right">
-                <div className="text-2xl font-bold">
-                  {metric.effectiveScore.toFixed(1)}
-                </div>
-                <div className="text-sm text-muted-foreground">
-                  Score: {metric.score.toFixed(1)} | Conf:{" "}
-                  {metric.confidence.toFixed(1)}%
-                </div>
-              </div>
-            </div>
-
-            {/* Progress Bar */}
-            <div className="space-y-2">
-              <div className="h-4 bg-muted rounded-full overflow-hidden">
-                <div
-                  className="h-full transition-all"
-                  style={{
-                    width: `${metric.effectiveScore}%`,
-                    backgroundColor: getScoreColor(metric.effectiveScore),
-                  }}
-                />
-              </div>
-              <div className="flex justify-between text-xs text-muted-foreground">
-                <span>Weight: {(metric.weight * 100).toFixed(0)}%</span>
-                <span>{metric.effectiveScore.toFixed(1)}%</span>
-              </div>
-            </div>
-
-            <div className="text-sm text-muted-foreground">
-              <p>
-                The effective score is calculated by combining the raw score
-                with the confidence level.
-              </p>
-            </div>
-          </div>
-        ))}
-      </div>
-
       {/* Metadata */}
       <div className="p-6 border border-border rounded-lg bg-muted/30 space-y-2">
-        <h3 className="text-lg font-semibold mb-4">Evaluation Metadata</h3>
+        <div className="flex justify-between items-center mb-4">
+          <h3 className="text-lg font-semibold">Evaluation Metadata</h3>
+          <HumanAttestationDialog
+            attestationUID={attestation.uid}
+            agentName={agentName}
+            onSuccess={() => {
+              // Optionally refetch attestations after successful verification
+              window.location.reload();
+            }}
+          />
+        </div>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
           <div>
             <span className="text-muted-foreground">Evaluator:</span>
@@ -277,6 +240,14 @@ export function AgentEvaluationOverview({
           </div>
         </div>
       </div>
+
+      {/* Human Verifications Section */}
+      {humanAttestationsQuery.data && (
+        <HumanAttestationsOverview
+          attestationUID={attestation.uid}
+          humanAttestations={humanAttestationsQuery.data}
+        />
+      )}
     </div>
   );
 }

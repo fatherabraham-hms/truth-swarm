@@ -7,8 +7,8 @@ import { Dashboard } from "@/components/landing/Dashboard";
 export default function Home() {
   return (
     <>
+      <Header />
       <MaxWidthWrapper>
-        <Header />
         <main className="min-h-screen">
           {/** Chat interaction section */}
           <section>
