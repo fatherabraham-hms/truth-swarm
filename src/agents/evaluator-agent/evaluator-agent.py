@@ -31,21 +31,54 @@ agent = Agent(
     readme_path="README.md"
 )
 
-QUESTION = "What are the top 3 best travel destinations for the next 6 months?"
+TEST_TARGET_AGENT_ADDRESS = "agent1qtzkq9stasjkl54js9ej604pvtcnp9l2m8s3u4mnvjcz3q4qerc5zmahxcq"
+
+#create a list of records with category, address
+agentsByCategory = [
+    {"category": "travel", "address": "agent1q282hfw3kpqzs6pqndp7hk68tpgycarqkj5pwuwyfuxsu8sm807p7pkq2er"},
+    {"category": "defi", "address": "agent1q2c8sxs5kg902j96ffruh0he2erhjf63eahrypzvj20gjraevxlggy4fq33"},
+    {"category": "halloween", "address": "agent1qtzkq9stasjkl54js9ej604pvtcnp9l2m8s3u4mnvjcz3q4qerc5zmahxcq"},
+]
+
+questionsByCategory = [
+    {"category": "travel", "question": "What are the top 3 best travel destinations for the next 6 months?"},
+    {"category": "defi", "question": "What are the top 3 best crypto tokens?"},
+    {"category": "halloween", "question": "Give me a creature that is a cross between a bull and a bee"},
+]
+
+#create a function that uses the TEST_TARGET_AGENT_ADDRESS to ask a question
+def retrieveQuestionByAgentAddress(agentAddress):
+    # First find the category for this agent address
+    category = None
+    for agent in agentsByCategory:
+        if agent["address"] == agentAddress:
+            category = agent["category"]
+            break
+    
+    if category is None:
+        return None
+    
+    # Then find the question for this category
+    for question_item in questionsByCategory:
+        if question_item["category"] == category:
+            return question_item["question"]
+    
+    return None
 
 # startup handler
 @agent.on_event("startup")
 async def ask_question(ctx: Context):
+    question = retrieveQuestionByAgentAddress(TEST_TARGET_AGENT_ADDRESS)
     ctx.logger.info(
-        f"Asking target agent to answer {QUESTION}"
+        f"Asking target agent to answer {question}"
     )
     # Send to target agent using ChatMessage format
     await ctx.send(
-        destination='agent1q282hfw3kpqzs6pqndp7hk68tpgycarqkj5pwuwyfuxsu8sm807p7pkq2er', 
+        destination=TEST_TARGET_AGENT_ADDRESS, 
         message=ChatMessage(
             timestamp=datetime.utcnow(),
             msg_id=uuid4(),
-            content=[TextContent(type="text", text=QUESTION)]
+            content=[TextContent(type="text", text=question)]
         )
     )
 
@@ -82,19 +115,6 @@ async def do_evaluation(ctx: Context, sender: str, msg: AIRequest):
         destination=sender, 
         message=message
     )
-
-
-# @agent.on_message(model=Request)
-# async def handle_message(ctx: Context, sender: str, msg: Request):
-#     """Log the received message and reply to the sender"""
-#     ctx.logger.info(f"Received message from {sender}: {msg.message}")
-
-#     if sender == 'agent1q0r8wgtnxqwegudp5k3cmf4hnu44q6y997fdg3pz8c3exhw04vu3yy4wdwd':
-#         await ctx.send(sender, Request(message="hello there alice"))
-#     elif sender == 'agent1q282hfw3kpqzs6pqndp7hk68tpgycarqkj5pwuwyfuxsu8sm807p7pkq2er':
-#         await ctx.send(sender, Request(message="Hello there Travel Agent!"))
-#     else:
-#         await ctx.send(sender, Request(message="hello there friend"))
 
 if __name__ == "__main__":
     agent.run()
