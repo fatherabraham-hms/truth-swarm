@@ -7,17 +7,17 @@ export async function evaluateAgent(
   address: string,
   category: "good" | "average" | "bad" = "good"
 ) {
+  // figure out if agent has wallet attached through tests?
   const agentWalletAddress = "0x";
 
+  // generate scores with test
   const evaluationScore = generateEvaluationScore(address, category);
+  // evaluation should provide comprehensive details -> which test passed / failed with evidence
   const details = { ...evaluationScore, agentWalletAddress };
 
   return { evaluationScore, details };
 }
 
-/**
- * Generate complete evaluation score with realistic random values
- */
 function generateEvaluationScore(
   address: string,
   category: "good" | "average" | "bad"
