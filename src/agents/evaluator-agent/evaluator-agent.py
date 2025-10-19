@@ -33,11 +33,10 @@ agent = Agent(
 
 TEST_TARGET_AGENT_ADDRESS = "agent1qtzkq9stasjkl54js9ej604pvtcnp9l2m8s3u4mnvjcz3q4qerc5zmahxcq"
 
-#create a list of records with category, address
 agentsByCategory = [
-    {"category": "travel", "address": "agent1q282hfw3kpqzs6pqndp7hk68tpgycarqkj5pwuwyfuxsu8sm807p7pkq2er"},
-    {"category": "defi", "address": "agent1q2c8sxs5kg902j96ffruh0he2erhjf63eahrypzvj20gjraevxlggy4fq33"},
-    {"category": "halloween", "address": "agent1qtzkq9stasjkl54js9ej604pvtcnp9l2m8s3u4mnvjcz3q4qerc5zmahxcq"},
+    {"category": "travel", "address": "agent1q282hfw3kpqzs6pqndp7hk68tpgycarqkj5pwuwyfuxsu8sm807p7pkq2er", "wallet": "fetch1lpwf86sdz3wcs2xvx5wjl7c3vzewt8q42d24wx"},
+    {"category": "defi", "address": "agent1q2c8sxs5kg902j96ffruh0he2erhjf63eahrypzvj20gjraevxlggy4fq33", "wallet": "fetch1u4tnce3wsldqgp4ws5vesey60aq82k5ln8czn7"},
+    {"category": "halloween", "address": "agent1qtzkq9stasjkl54js9ej604pvtcnp9l2m8s3u4mnvjcz3q4qerc5zmahxcq", "wallet": "fetch1zptj47xfa6kh7wyvtt3eem72p8r7547ygmuwa7"},
 ]
 
 questionsByCategory = [
@@ -46,7 +45,7 @@ questionsByCategory = [
     {"category": "halloween", "question": "Give me a creature that is a cross between a bull and a bee"},
 ]
 
-#create a function that uses the TEST_TARGET_AGENT_ADDRESS to ask a question
+
 def retrieveQuestionByAgentAddress(agentAddress):
     # First find the category for this agent address
     category = None
@@ -65,7 +64,7 @@ def retrieveQuestionByAgentAddress(agentAddress):
     
     return None
 
-# startup handler
+################# AGENTVERSE HANDLERS #################
 @agent.on_event("startup")
 async def ask_question(ctx: Context):
     question = retrieveQuestionByAgentAddress(TEST_TARGET_AGENT_ADDRESS)
@@ -92,7 +91,7 @@ class AIResponse(Model):
             "description": "Text response for truth swarm agent"
         }
 
-# Handler for receiving responses from other agents
+########## AGENT TO AGENT HANDLERS ##########
 @agent.on_message(model=ChatMessage)
 async def handle_ai_response(ctx: Context, sender: str, msg: ChatMessage):
     ctx.logger.info(f"Received response from {sender}: {msg.text}")
@@ -101,7 +100,7 @@ async def handle_ai_response(ctx: Context, sender: str, msg: ChatMessage):
     #log agent address and result
     ctx.logger.info(f"Agent {sender} response evaluated as: {result}")
 
-# Handler for evaluating questions (if this agent receives questions)
+########## HUMAN TO AGENT HANDLERS ##########
 @agent.on_message(model=AIRequest, replies={AIResponse})
 async def do_evaluation(ctx: Context, sender: str, msg: AIRequest):
     ctx.logger.info(f"Received question from {sender}: {msg.question}")
