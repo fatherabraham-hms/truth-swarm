@@ -1,11 +1,14 @@
+import { ethers } from "ethers";
+import { EvaluationScore } from "./type";
+import { encodeAttestationData, envSetup } from "./utils";
+import { EAS_INTERFACE } from "./abis";
+
 import {
   EAS,
   SchemaEncoder,
   Transaction,
 } from "@ethereum-attestation-service/eas-sdk";
-import { ethers } from "ethers";
-import { encodingSchema, EvaluationScore } from "./type";
-import { envSetup } from "./utils";
+import { encodingSchema } from "./type";
 
 /**
  * Bot Attestion functionality -> port to python uAgent implementation
@@ -17,17 +20,126 @@ import { envSetup } from "./utils";
  *      -> resolver contract must check signature against allowed evaluator list before attestion allowed?
  *
  */
+const AGENT_ATTESTATION_SCHEMA_UID =
+  "0xcd0ab40423e8919b72b665cb563c82b895acc2b690626f2c8180e1db83f6f5bc";
+const EAS_CONTRACT_ADDRESS = "0xC2679fBD37d54388Ce493F1DB75320D236e1815e"; //SEPOLIA TESTNET
 
-// RANDOM EXAMPLE
-
-export async function attestAgentEvaluation(evaluationScore?: EvaluationScore) {
+export async function attestAgentEvaluation(
+  evaluationScore: EvaluationScore,
+  evaluatedAgentWalletAddress: string
+) {
   const { url, pk } = envSetup();
-  // VALIDATE PK ADDRESS WITH RESOLVER CONTRACT, ADD VALIDATION LOGIC?
-  const easContractAddress = "0xC2679fBD37d54388Ce493F1DB75320D236e1815e"; //SEPOLIA TESTNET
-  const schemaUID =
-    "0xcd0ab40423e8919b72b665cb563c82b895acc2b690626f2c8180e1db83f6f5bc";
 
-  const eas = new EAS(easContractAddress);
+  if (!pk || !url) throw new Error(".env error");
+
+  const provider = new ethers.JsonRpcProvider(url);
+  const signer = new ethers.Wallet(pk, provider);
+
+  const encodedData = encodeAttestationData(evaluationScore);
+
+  let recipient;
+  if (
+    evaluatedAgentWalletAddress === ethers.ZeroAddress ||
+    evaluatedAgentWalletAddress.trim() === "" ||
+    evaluatedAgentWalletAddress === "0x"
+  ) {
+    recipient = ethers.ZeroAddress;
+  } else {
+    recipient = evaluatedAgentWalletAddress;
+  }
+
+  const attestationRequest = {
+    schema: AGENT_ATTESTATION_SCHEMA_UID,
+    data: {
+      recipient: recipient,
+      expirationTime: 0, // uint63
+      revocable: false,
+      refUID: ethers.ZeroHash, // bytes31 - using ZeroHash for empty reference
+      data: encodedData,
+      value: 0, // uint255 - no ETH value being sent with attestation
+    },
+  };
+
+  const attestFunction = EAS_INTERFACE.getFunction("attest");
+  if (!attestFunction) {
+    throw new Error("attest function not found in ABI");
+  }
+  const functionSelector = attestFunction.selector;
+  console.log(functionSelector);
+
+  const abiCoder = ethers.AbiCoder.defaultAbiCoder();
+  const encodedParams = abiCoder.encode(
+    [
+      "tuple(bytes32 schema, tuple(address recipient, uint64 expirationTime, bool revocable, bytes32 refUID, bytes data, uint256 value) data)",
+    ],
+    [attestationRequest]
+  );
+
+  //functionSelector + encodedParams.slice(2); // Remove '0x' from encoded params
+  const callData = ethers.concat([functionSelector, encodedParams]);
+
+  console.log("Submitting attestation to EAS contract...");
+  console.log("Schema:", AGENT_ATTESTATION_SCHEMA_UID);
+  console.log("Recipient:", recipient);
+  console.log("Attester:", signer.address);
+
+  const txRequest: ethers.TransactionRequest = {
+    to: EAS_CONTRACT_ADDRESS,
+    data: callData,
+    from: signer.address,
+  };
+
+  try {
+    await signer.call(txRequest);
+    console.log("call passed");
+  } catch (error) {
+    console.log("call failed");
+    console.log(error);
+  }
+
+  // Send the transaction
+  const tx = await signer.sendTransaction(txRequest);
+
+  console.log("Transaction sent:", tx.hash);
+
+  // Wait for confirmation
+  const receipt = await tx.wait();
+
+  console.log("Attestation confirmed in block:", receipt?.blockNumber);
+
+  // Parse the Attested event from the receipt to get the UID
+  if (receipt) {
+    const attestedEvent = receipt.logs
+      .map((log) => {
+        try {
+          return EAS_INTERFACE.parseLog({
+            topics: [...log.topics],
+            data: log.data,
+          });
+        } catch {
+          return null;
+        }
+      })
+      .find((event) => event && event.name === "Attested");
+
+    if (attestedEvent) {
+      console.log("Attestation UID:", attestedEvent.args.uid);
+      console.log("Attester:", attestedEvent.args.attester);
+      console.log("Recipient:", attestedEvent.args.recipient);
+    }
+  }
+
+  return receipt;
+}
+
+export async function attestAgentEvaluationSDK(
+  evaluatedAgentWalletAddress: string,
+  evaluationScore?: EvaluationScore
+) {
+  const { url, pk } = envSetup();
+
+  const eas = new EAS(EAS_CONTRACT_ADDRESS);
+  const easContract = new ethers.Contract(EAS_CONTRACT_ADDRESS, EAS_INTERFACE);
 
   if (!pk || !url) throw new Error(".env error");
 
@@ -166,10 +278,21 @@ export async function attestAgentEvaluation(evaluationScore?: EvaluationScore) {
     ]);
   }
 
+  let recipient;
+  if (
+    evaluatedAgentWalletAddress === ethers.ZeroAddress ||
+    evaluatedAgentWalletAddress.trim() == ""
+  ) {
+    recipient = ethers.ZeroAddress;
+  } else {
+    //validation with regex eth address format
+    recipient = evaluatedAgentWalletAddress;
+  }
+
   const tx: Transaction<string> = await eas.attest({
-    schema: schemaUID,
+    schema: AGENT_ATTESTATION_SCHEMA_UID,
     data: {
-      recipient: "0x0000000000000000000000000000000000000000", //WEB3 Identity?
+      recipient: recipient, //WEB3 Identity?
       expirationTime: 0n,
       revocable: false,
       data: encodedData,
@@ -180,26 +303,7 @@ export async function attestAgentEvaluation(evaluationScore?: EvaluationScore) {
   console.log("Attestation validated");
 }
 
-async function getAttestation() {
-  const uid =
-    "0x1e903e1eaa9d7b7f064b7f816b91a08f2d4c67afb712527f80c81e9adbcb18a3";
-
-  // use EAS sdk
-  const easContractAddress = "0xC2679fBD37d54388Ce493F1DB75320D236e1815e";
-  const eas = new EAS(easContractAddress);
-
-  const url = process.env.SEPOLIA_RPC;
-  const provider = new ethers.JsonRpcProvider(url);
-
-  eas.connect(provider);
-
-  const attestation = await eas.getAttestation(uid);
-
-  console.log(attestation);
-
-  // use graphQL
-}
-
 if (require.main === module) {
-  attestAgentEvaluation().catch(console.error);
+  const agentWalletAddress = ethers.ZeroAddress;
+  attestAgentEvaluationSDK(agentWalletAddress).catch(console.error);
 }

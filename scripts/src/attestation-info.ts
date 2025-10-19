@@ -40,6 +40,26 @@ async function getAttestationInfo(attestionUid: string) {
   console.log(evaluationScore);
 }
 
+async function getAttestation() {
+  const uid =
+    "0x1e903e1eaa9d7b7f064b7f816b91a08f2d4c67afb712527f80c81e9adbcb18a3";
+
+  // use EAS sdk
+  const easContractAddress = "0xC2679fBD37d54388Ce493F1DB75320D236e1815e";
+  const eas = new EAS(easContractAddress);
+
+  const url = process.env.SEPOLIA_RPC;
+  const provider = new ethers.JsonRpcProvider(url);
+
+  eas.connect(provider);
+
+  const attestation = await eas.getAttestation(uid);
+
+  console.log(attestation);
+
+  // use graphQL
+}
+
 async function getAllEvaluationScoreAttestions() {}
 
 async function getAttestionScoreDetails() {}

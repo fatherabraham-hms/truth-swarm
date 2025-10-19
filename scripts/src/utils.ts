@@ -2,9 +2,10 @@ import { ethers } from "ethers";
 
 import * as path from "path";
 import { configDotenv } from "dotenv";
+import { encodingSchema, EvaluationScore } from "./type";
 
 const SCHEMA_REGISTRY_ABI = [
-  "event Registered(bytes32 indexed uid, address indexed registerer, SchemaRecord schema)",
+  "event Registered(bytes32 indexed uid, address indexed registerer, tuple(bytes32 uid, address resolver, bool revocable, string schema) schema)",
 ] as const;
 
 const SCHEMA_REGISTRY_INTERFACE = new ethers.Interface(SCHEMA_REGISTRY_ABI);
@@ -202,12 +203,6 @@ export function envSetup() {
   return { url, pk };
 }
 
-/**
- * Creates an EvaluationScore object from decoded EAS attestation data
- * @param decodedData - The decoded schema data from EAS SDK
- * @returns A validated EvaluationScore object
- * @throws Error if required fields are missing or validation fails
- */
 export function createEvaluationScoreFromDecoded(
   decodedData: import("./type").DecodedSchemaData
 ): import("./type").EvaluationScore {
@@ -383,4 +378,41 @@ export function createEvaluationScoreFromDecoded(
     domainWeight,
     detailsCID,
   };
+}
+
+export function encodeAttestationData(
+  evaluationScore: EvaluationScore
+): string {
+  const types = encodingSchema.split(", ").map((field) => {
+    const parts = field.trim().split(" ");
+    if (!parts[0]) {
+      throw new Error(`Invalid schema field: ${field}`);
+    }
+    return parts[0]; // Get just the type (e.g., "string", "uint256", "uint8")
+  });
+
+  const values = [
+    evaluationScore.evaluatedAgentAddress,
+    evaluationScore.evaluatorAgentAddress,
+    evaluationScore.timestamp,
+    evaluationScore.finalScore,
+    evaluationScore.overallConfidence,
+    evaluationScore.grade,
+    evaluationScore.correctnessScore,
+    evaluationScore.correctnessConfidence,
+    evaluationScore.correctnessEffectiveScore,
+    evaluationScore.correctnessWeight,
+    evaluationScore.capabilitiesScore,
+    evaluationScore.capabilitiesConfidence,
+    evaluationScore.capabilitiesEffectiveScore,
+    evaluationScore.capabilitiesWeight,
+    evaluationScore.domainScore,
+    evaluationScore.domainConfidence,
+    evaluationScore.domainEffectiveScore,
+    evaluationScore.domainWeight,
+    evaluationScore.detailsCID,
+  ];
+
+  const abiCoder = ethers.AbiCoder.defaultAbiCoder();
+  return abiCoder.encode(types, values);
 }

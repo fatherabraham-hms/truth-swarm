@@ -1,3 +1,4 @@
+// Add wallet address here in next iteration
 export const schema = `(
     string evaluatedAgentAddress,
     string evaluatorAgentAddress,

@@ -1,6 +1,7 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.encodingSchema = exports.schema = void 0;
+// Add wallet address here in next iteration
 exports.schema = `(
     string evaluatedAgentAddress,
     string evaluatorAgentAddress,
