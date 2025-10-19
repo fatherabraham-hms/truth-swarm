@@ -15,12 +15,6 @@ export function Header() {
         {/** Right grid */}
         <div className="flex items-center justify-end align-center">
           <Link
-            href={"/docs"}
-            className={buttonVariants({ size: "default", variant: "outline" })}
-          >
-            docs
-          </Link>{" "}
-          <Link
             href={"/connect"}
             className={buttonVariants({ size: "default", variant: "outline" })}
           >
