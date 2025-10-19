@@ -407,7 +407,7 @@ export function createEvaluationScoreFromDecoded(
  * @param evaluationScore - The evaluation score data to encode
  * @returns Hex-encoded string suitable for EAS attestation
  */
-export function encodeAttestationData(
+export function encodeAttestationDataWithSchema(
   evaluationScore: EvaluationScore
 ): string {
   const types = encodingSchema.split(", ").map((field) => {

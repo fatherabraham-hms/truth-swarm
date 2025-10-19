@@ -1,6 +1,6 @@
-import { ethers } from "ethers";
+import { ethers, TransactionRequest } from "ethers";
 import { EvaluationScore } from "./type";
-import { encodeAttestationData, envSetup } from "./utils";
+import { encodeAttestationDataWithSchema, envSetup } from "./utils";
 import { EAS_INTERFACE } from "./abis";
 
 import {
@@ -47,14 +47,14 @@ export async function attestAgentEvaluation(
     recipient = evaluatedAgentWalletAddress;
   }
 
-  // ENCODE THE EVALUATION SCORE IN THE ATTESTATION TUPLE
-  const encodedData = encodeAttestationData(evaluationScore);
+  // ENCODE THE EVALUATION SCORE IN THE ATTESTATION
+  const encodedData = encodeAttestationDataWithSchema(evaluationScore);
 
-  // ABI TUPLE
-  const attestationTuple = {
+  // ATTEST FUNCTION INPUT STRUCT
+  const attestTuple = {
     schema: AGENT_ATTESTATION_SCHEMA_UID,
     data: {
-      recipient: recipient, //Change for a schema field?
+      recipient: recipient,
       expirationTime: 0,
       revocable: false,
       refUID: ethers.ZeroHash,
@@ -63,8 +63,19 @@ export async function attestAgentEvaluation(
     },
   };
 
-  // ENCODE THE TRANSACTION CALLDATA WITH FUNCTION SELECTOR
-  const callData = encodeAttestTxCallData(attestationTuple);
+  const encodedFunctionData = ethers.AbiCoder.defaultAbiCoder().encode(
+    // ATTEST ENCODING SCHEME
+    [
+      "tuple(bytes32 schema, tuple(address recipient, uint64 expirationTime, bool revocable, bytes32 refUID, bytes data, uint256 value) data)",
+    ],
+    [attestTuple]
+  );
+
+  const attestFunction = EAS_INTERFACE.getFunction("attest");
+  const functionSelector = attestFunction!.selector;
+
+  //functionSelector + encodedParams.slice(2); // Remove '0x' from encoded params
+  const callData = ethers.concat([functionSelector, encodedFunctionData]);
 
   console.log("Submitting attestation to EAS contract...");
   console.log("Schema:", AGENT_ATTESTATION_SCHEMA_UID);
@@ -72,11 +83,12 @@ export async function attestAgentEvaluation(
   console.log("Attester:", signer.address);
 
   // CREATE TRANSACTION
-  const txRequest: ethers.TransactionRequest = {
+  const txRequest: TransactionRequest = {
     to: EAS_CONTRACT_ADDRESS,
     data: callData,
     from: signer.address,
   };
+  await signer.sendTransaction(txRequest);
 
   try {
     await signer.call(txRequest);
@@ -118,26 +130,7 @@ export async function attestAgentEvaluation(
   return receipt;
 }
 
-function encodeAttestTxCallData(attestationRequest: any) {
-  const attestFunction = EAS_INTERFACE.getFunction("attest");
-  if (!attestFunction) {
-    throw new Error("attest function not found in ABI");
-  }
-  const functionSelector = attestFunction.selector;
-
-  const abiCoder = ethers.AbiCoder.defaultAbiCoder();
-  const encodedParams = abiCoder.encode(
-    [
-      "tuple(bytes32 schema, tuple(address recipient, uint64 expirationTime, bool revocable, bytes32 refUID, bytes data, uint256 value) data)",
-    ],
-    [attestationRequest]
-  );
-
-  //functionSelector + encodedParams.slice(2); // Remove '0x' from encoded params
-  const callData = ethers.concat([functionSelector, encodedParams]);
-
-  return callData;
-}
+function encodeAttestTxCallData(attestationRequest: any) {}
 
 export async function attestAgentEvaluationSDK(
   evaluatedAgentWalletAddress: string,
