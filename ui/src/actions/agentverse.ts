@@ -44,7 +44,8 @@ export async function fetchAgentverseInfo(
       description: data.description || "",
       domain: data.domain || "",
       avatar_href: data.avatar_href || "",
-      rating: data.rating || "",
+      rating: data.rating || 0,
+      status: data.status || "unknown",
       category: data.category || "",
     };
   } catch (error) {

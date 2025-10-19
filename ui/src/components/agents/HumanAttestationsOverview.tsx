@@ -2,18 +2,30 @@
 
 import { HumanAttestation } from "@/types/attestation";
 import Link from "next/link";
-import { CheckCircle2, XCircle, MessageSquare, Eye } from "lucide-react";
+import {
+  CheckCircle2,
+  XCircle,
+  MessageSquare,
+  Eye,
+  ChevronLeft,
+  ChevronRight,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { useState } from "react";
 
 interface HumanAttestationsOverviewProps {
   attestationUID: string;
   humanAttestations: HumanAttestation[];
 }
 
+const ITEMS_PER_PAGE = 3;
+
 export function HumanAttestationsOverview({
   attestationUID,
   humanAttestations,
 }: HumanAttestationsOverviewProps) {
+  const [currentPage, setCurrentPage] = useState(1);
+
   // Filter attestations for this specific agent evaluation
   const relevantAttestations = humanAttestations.filter(
     (att) => att.humanConfirmation.originalAttestationUID === attestationUID
@@ -23,6 +35,15 @@ export function HumanAttestationsOverview({
     (att) => att.humanConfirmation.approved
   ).length;
   const rejectedCount = relevantAttestations.length - approvedCount;
+
+  // Calculate pagination
+  const totalPages = Math.ceil(relevantAttestations.length / ITEMS_PER_PAGE);
+  const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
+  const endIndex = startIndex + ITEMS_PER_PAGE;
+  const paginatedAttestations = relevantAttestations.slice(
+    startIndex,
+    endIndex
+  );
 
   if (relevantAttestations.length === 0) {
     return (
@@ -54,7 +75,7 @@ export function HumanAttestationsOverview({
       </div>
 
       <div className="space-y-3">
-        {relevantAttestations.map((attestation) => {
+        {paginatedAttestations.map((attestation) => {
           const { humanConfirmation } = attestation;
           const hasComment =
             humanConfirmation.comment &&
@@ -117,7 +138,42 @@ export function HumanAttestationsOverview({
         })}
       </div>
 
-      {relevantAttestations.length > 0 && (
+      {/* Pagination */}
+      {totalPages > 1 && (
+        <div className="flex items-center justify-between pt-2 border-t border-border">
+          <div className="text-xs text-muted-foreground">
+            Showing {startIndex + 1}-
+            {Math.min(endIndex, relevantAttestations.length)} of{" "}
+            {relevantAttestations.length} verification
+            {relevantAttestations.length !== 1 ? "s" : ""}
+          </div>
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+              disabled={currentPage === 1}
+              className="h-8 w-8 p-0"
+            >
+              <ChevronLeft className="h-4 w-4" />
+            </Button>
+            <div className="text-xs text-muted-foreground">
+              Page {currentPage} of {totalPages}
+            </div>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+              disabled={currentPage === totalPages}
+              className="h-8 w-8 p-0"
+            >
+              <ChevronRight className="h-4 w-4" />
+            </Button>
+          </div>
+        </div>
+      )}
+
+      {!totalPages && relevantAttestations.length > 0 && (
         <div className="pt-2 text-xs text-muted-foreground text-center">
           Showing {relevantAttestations.length} verification
           {relevantAttestations.length !== 1 ? "s" : ""}

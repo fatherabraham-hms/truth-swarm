@@ -20,15 +20,16 @@ export function ChatInteraction() {
   const [isLoading, setIsLoading] = React.useState(false);
   const [sessionId, setSessionId] = React.useState<string>();
   const [isActive, setIsActive] = React.useState(false);
-  const messagesEndRef = React.useRef<HTMLDivElement>(null);
+  const messagesContainerRef = React.useRef<HTMLDivElement>(null);
   const inputRef = React.useRef<HTMLInputElement>(null);
 
-  // Auto-scroll to bottom when new messages arrive
-  /** 
+  // Auto-scroll to bottom when messages change
   React.useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages]);
-*/
+    if (messagesContainerRef.current) {
+      messagesContainerRef.current.scrollTop =
+        messagesContainerRef.current.scrollHeight;
+    }
+  }, [messages, isLoading]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -103,7 +104,10 @@ export function ChatInteraction() {
     >
       {/* Chat messages area */}
       {isActive && (
-        <div className="mt-20 flex-1 overflow-y-auto px-4 pb-4 space-y-4">
+        <div
+          ref={messagesContainerRef}
+          className="mt-20 flex-1 overflow-y-auto px-4 pb-6 space-y-4 max-h-[calc(80svh-12rem)]"
+        >
           {messages.map((message, index) => (
             <div
               key={index}
@@ -133,7 +137,6 @@ export function ChatInteraction() {
               </div>
             </div>
           )}
-          <div ref={messagesEndRef} />
         </div>
       )}
 

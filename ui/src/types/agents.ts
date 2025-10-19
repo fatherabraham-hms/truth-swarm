@@ -4,8 +4,10 @@ export interface AgentVerseInfo {
   description: string;
   domain: string;
   avatar_href: string;
-  rating: string;
+  rating: number;
+  status: string;
   category: string;
+  walletAddress?: string; // From attestation recipient
 }
 
 export interface Agent {

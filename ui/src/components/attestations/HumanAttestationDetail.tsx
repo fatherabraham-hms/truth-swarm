@@ -199,15 +199,6 @@ export function HumanAttestationDetail({ uid }: HumanAttestationDetailProps) {
               <code className="font-mono text-xs break-all flex-1">
                 {humanConfirmation.originalAttestationUID}
               </code>
-              {originalAttestation && (
-                <Link
-                  href={`/agents/${originalAttestation.evaluationScore.evaluatedAgentAddress}`}
-                  className="text-blue-600 hover:text-blue-700 flex items-center gap-1 flex-shrink-0"
-                >
-                  View Agent
-                  <ExternalLink className="h-3 w-3" />
-                </Link>
-              )}
             </div>
           </div>
 
@@ -226,7 +217,7 @@ export function HumanAttestationDetail({ uid }: HumanAttestationDetailProps) {
           </div>
 
           <div>
-            <span className="text-muted-foreground">View on Etherscan:</span>
+            <span className="text-muted-foreground">View Attestation:</span>
             <a
               href={`https://sepolia.easscan.org/attestation/view/${attestation.uid}`}
               target="_blank"

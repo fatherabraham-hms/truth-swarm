@@ -13,8 +13,8 @@ import {
 } from "@/hooks/useAttestation";
 import { fetchAgentverseInfo } from "@/actions/agentverse";
 import { AgentVerseInfo } from "@/types/agents";
-import { HumanAttestationDialog } from "./HumanAttestationDialog";
 import { HumanAttestationsOverview } from "./HumanAttestationsOverview";
+import { EvaluationDetailsCard } from "./EvaluationDetailsCard";
 
 interface AgentEvaluationOverviewProps {
   address: string;
@@ -49,9 +49,14 @@ export function AgentEvaluationOverview({
         ).length;
         setHumanVerificationCount(verifications);
 
-        // Fetch agent info from Agentverse
+        // Fetch agent info from Agentverse and add wallet address from attestation
         fetchAgentverseInfo(address).then((info) => {
-          setAgentInfo(info);
+          if (info) {
+            setAgentInfo({
+              ...info,
+              walletAddress: agentAttestation.recipient, // Wallet address from attestation recipient
+            });
+          }
           setIsLoadingAgentInfo(false);
         });
       } else {
@@ -59,13 +64,6 @@ export function AgentEvaluationOverview({
       }
     }
   }, [address, agentAttestationsQuery.data, humanAttestationsQuery.data]);
-
-  const getScoreColor = (score: number) => {
-    if (score >= 80) return "#10b981"; // green
-    if (score >= 60) return "#eab308"; // yellow
-    if (score >= 40) return "#f59e0b"; // amber
-    return "#ef4444"; // red
-  };
 
   const isLoading =
     agentAttestationsQuery.isLoading ||
@@ -152,14 +150,42 @@ export function AgentEvaluationOverview({
             </span>
           )}
         </div>
-        <a
-          href={`https://agentverse.ai/agents/details/${address}/profile`}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="text-muted-foreground font-mono text-sm break-all hover:text-blue-600 transition-colors hover:underline"
-        >
-          {address}
-        </a>
+        <div className="flex items-center gap-2 flex-wrap">
+          <a
+            href={`https://agentverse.ai/agents/details/${address}/profile`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-muted-foreground font-mono text-sm break-all hover:text-blue-600 transition-colors hover:underline"
+          >
+            {address}
+          </a>
+          {agentInfo?.status && (
+            <div
+              className={`h-2 w-2 rounded-full ${
+                agentInfo.status === "active" ? "bg-green-500" : "bg-red-500"
+              }`}
+              title={`Status: ${agentInfo.status}`}
+            />
+          )}
+          {agentInfo?.rating && agentInfo.rating > 0 && (
+            <span className="text-xs text-muted-foreground">
+              ({agentInfo.rating}/5)
+            </span>
+          )}
+        </div>
+
+        {agentInfo?.walletAddress && (
+          <a
+            href={`https://etherscan.io/address/${agentInfo.walletAddress}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-muted-foreground font-mono text-sm break-all hover:text-blue-600 transition-colors hover:underline"
+            title="View wallet on Etherscan"
+          >
+            {agentInfo.walletAddress}
+          </a>
+        )}
+
         {agentInfo?.description && (
           <p className="text-muted-foreground mt-2">{agentInfo.description}</p>
         )}
@@ -192,17 +218,7 @@ export function AgentEvaluationOverview({
 
       {/* Metadata */}
       <div className="p-6 border border-border rounded-lg bg-muted/30 space-y-2">
-        <div className="flex justify-between items-center mb-4">
-          <h3 className="text-lg font-semibold">Evaluation Metadata</h3>
-          <HumanAttestationDialog
-            attestationUID={attestation.uid}
-            agentName={agentName}
-            onSuccess={() => {
-              // Optionally refetch attestations after successful verification
-              window.location.reload();
-            }}
-          />
-        </div>
+        <h3 className="text-lg font-semibold mb-4">Evaluation Metadata</h3>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
           <div>
             <span className="text-muted-foreground">Evaluator:</span>
@@ -248,6 +264,16 @@ export function AgentEvaluationOverview({
           humanAttestations={humanAttestationsQuery.data}
         />
       )}
+
+      {/* Detailed Evaluation Metrics Card */}
+      <EvaluationDetailsCard
+        detailsCID={evalScore.detailsCID}
+        attestationUID={attestation.uid}
+        agentName={agentName}
+        onVerificationSuccess={() => {
+          window.location.reload();
+        }}
+      />
     </div>
   );
 }
