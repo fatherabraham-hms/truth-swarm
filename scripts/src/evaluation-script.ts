@@ -1,4 +1,3 @@
-import { EvaluationScore } from "./type";
 import { attestAgentEvaluation } from "./agent-attestation";
 import { envSetup } from "./utils";
 import { evaluateAgent } from "./agent-evaluation";
