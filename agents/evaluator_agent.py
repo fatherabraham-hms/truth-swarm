@@ -349,7 +349,8 @@ class ASI1Evaluator:
 
 agent = Agent(
     name="evaluator_attestation_agent",
-    seed="evaluator_attestation_unique_seed",
+    #seed="evaluator_attestation_unique_seed",
+    seed="",
     port=8000,
     endpoint=["http://localhost:8000/submit"],
     mailbox=True  # Enable for Agentverse integration
@@ -579,11 +580,6 @@ This agent combines AI-powered agent evaluation with blockchain attestation:
 
 💬 Chat Protocol:
    Send an agent address via chat to trigger evaluation
-
-🔧 Configuration:
-   • Create .env file in project root with EAS credentials
-   • Mock mode enabled if PRIVATE_KEY not set (perfect for testing!)
-   • See README for full configuration options
 
 🛑 Stop with Ctrl+C
     """)
