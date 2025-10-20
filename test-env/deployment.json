@@ -1,0 +1,101 @@
+{
+  "network": "hardhat",
+  "chainId": 31337,
+  "contracts": {
+    "MockEAS": {
+      "address": "0x67d269191c92Caf3cD7723F116c85e6E9bf55933",
+      "abi": [
+        "constructor()",
+        "event Attested(bytes32 indexed,bytes32 indexed,address indexed,address,uint64,bool,bytes32,bytes,uint256)",
+        "function attest((bytes32,bytes,uint64,bool,bytes32,uint256,uint64,address)) payable returns (bytes32)",
+        "function attestByDelegation((bytes32,bytes,uint64,bool,bytes32,uint256,uint64,address,address)) payable returns (bytes32)",
+        "function getAttestation(bytes32) view returns ((bytes32,bytes32,uint64,uint64,uint64,bytes32,address,address,bool,bytes))",
+        "function getSchemaRegistry() view returns (address)",
+        "function isAttestationValid(bytes32) view returns (bool)",
+        "function revoke((bytes32,uint256,uint64)) payable",
+        "function revokeByDelegation((bytes32,uint256,uint64,address)) payable",
+        "function setSchemaRegistry(address)"
+      ]
+    },
+    "AttesterResolver": {
+      "address": "0xa82fF9aFd8f496c3d6ac40E2a0F282E47488CFc9",
+      "abi": [
+        "constructor(address,address[])",
+        "error AccessDenied()",
+        "function add_attesters(address)",
+        "function getEAS() view returns (address)",
+        "function getTargetAttesters() view returns (address[])",
+        "function isPayable() pure returns (bool)",
+        "function onAttestExternal((bytes32,bytes32,uint64,uint64,uint64,bytes32,address,address,bool,bytes),uint256) payable returns (bool)",
+        "function onRevokeExternal((bytes32,bytes32,uint64,uint64,uint64,bytes32,address,address,bool,bytes),uint256) payable returns (bool)"
+      ]
+    },
+    "SchemaRegistry": {
+      "address": "0xE6E340D132b5f46d1e472DebcD681B2aBc16e57E",
+      "abi": [
+        "event Registered(bytes32 indexed,address indexed,(bytes32,bytes32,bool,address))",
+        "function getSchema(bytes32) view returns ((bytes32,bytes32,bool,address))",
+        "function isRegistered(bytes32) view returns (bool)",
+        "function register(string,bool) returns (bytes32)"
+      ]
+    }
+  },
+  "schemas": {
+    "agentEvaluation": {
+      "_type": "TransactionResponse",
+      "accessList": [],
+      "blockNumber": 37,
+      "blockHash": "0x73487f6c875f5094200105202bf5c89e9a4f92f66a9ec735de441d2cc099ad87",
+      "blobVersionedHashes": null,
+      "chainId": "31337",
+      "data": "0x8f294da60000000000000000000000000000000000000000000000000000000000000040000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000001e4737472696e67206576616c75617465644167656e74416464726573732c20737472696e67206576616c7561746f724167656e74416464726573732c2075696e743235362074696d657374616d702c2075696e743235362066696e616c53636f72652c2075696e7438206f766572616c6c436f6e666964656e63652c20737472696e672067726164652c2075696e7432353620636f72726563746e65737353636f72652c2075696e743820636f72726563746e657373436f6e666964656e63652c2075696e7432353620636f72726563746e65737345666665637469766553636f72652c2075696e743820636f72726563746e6573735765696768742c2075696e74323536206361706162696c697469657353636f72652c2075696e7438206361706162696c6974696573436f6e666964656e63652c2075696e74323536206361706162696c697469657345666665637469766553636f72652c2075696e7438206361706162696c69746965735765696768742c2075696e7432353620646f6d61696e53636f72652c2075696e743820646f6d61696e436f6e666964656e63652c2075696e7432353620646f6d61696e45666665637469766553636f72652c2075696e743820646f6d61696e5765696768742c20737472696e672064657461696c7343494400000000000000000000000000000000000000000000000000000000",
+      "from": "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266",
+      "gasLimit": "30000000",
+      "gasPrice": "1008934325",
+      "hash": "0x7ba96db672272a803fbd186015c9b7f4c7a26c594ed213e47609d6f9cbca7aad",
+      "maxFeePerGas": "1011307505",
+      "maxPriorityFeePerGas": "1000000000",
+      "maxFeePerBlobGas": null,
+      "nonce": 32,
+      "signature": {
+        "_type": "signature",
+        "networkV": null,
+        "r": "0xbc6afb9ccbc5de87788891103151fe1c1d58a31787e46f29256dbc21b3fba26a",
+        "s": "0x1762ab7959744f89aa27be4b930ebbe52a4ad0bf5cd6f3fd26a6551ad5a80da2",
+        "v": 28
+      },
+      "to": "0xE6E340D132b5f46d1e472DebcD681B2aBc16e57E",
+      "type": 2,
+      "value": "0"
+    },
+    "humanVerification": {
+      "_type": "TransactionResponse",
+      "accessList": [],
+      "blockNumber": 38,
+      "blockHash": "0xc27c89de1ef4e1edfb7dbfc6a6dbf5e5dfce0ee4f072375bdbdf88a73bf72433",
+      "blobVersionedHashes": null,
+      "chainId": "31337",
+      "data": "0x8f294da600000000000000000000000000000000000000000000000000000000000000400000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000006162797465733332206f726967696e616c4174746573746174696f6e5549442c20616464726573732076657269666965722c2075696e7436342074696d657374616d702c20626f6f6c20617070726f7665642c20737472696e6720636f6d6d656e7400000000000000000000000000000000000000000000000000000000000000",
+      "from": "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266",
+      "gasLimit": "30000000",
+      "gasPrice": "1007826632",
+      "hash": "0x25b36bf5853c431c1cabcd5f50db168612b3da57216e33eb921840cc3fc42df5",
+      "maxFeePerGas": "1009905581",
+      "maxPriorityFeePerGas": "1000000000",
+      "maxFeePerBlobGas": null,
+      "nonce": 33,
+      "signature": {
+        "_type": "signature",
+        "networkV": null,
+        "r": "0x3a19cbfa671e10a9c76b1e3901ce8605dc641567d3edfe276dfe2d703fdc7393",
+        "s": "0x703697f1c49283b894ed549a43cc55599252185c8dc8250323219cf81766a4b1",
+        "v": 27
+      },
+      "to": "0xE6E340D132b5f46d1e472DebcD681B2aBc16e57E",
+      "type": 2,
+      "value": "0"
+    }
+  },
+  "deployer": "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266",
+  "timestamp": "2025-10-20T15:05:41.549Z"
+}
