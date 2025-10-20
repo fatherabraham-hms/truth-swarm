@@ -208,7 +208,4 @@ __marimo__/
 
 scripts/node_modules
 ##scripts/js-build
-
-scripts/node_modules
-##scripts/js-build
 ./lib
