@@ -1,347 +1,318 @@
-# Resolver Attestation Agent
+# Truth Swarm - Agent Evaluator with EAS Attestation
 
-The Resolver Attestation Agent is the core component of Truth Swarm that handles agent evaluation attestations using the Ethereum Attestation Service (EAS) and custom AttesterResolver smart contracts.
+This directory contains the integrated evaluator agent that combines AI-powered agent evaluation with blockchain attestation using the Ethereum Attestation Service (EAS).
 
-## 🎯 Overview
+## 🚀 Quick Start
 
-The agent processes evaluation data from AI agents, validates it, and creates verifiable attestations on the blockchain. It supports both automated agent evaluations and human verification workflows.
+### 1. Install Dependencies
+
+```bash
+cd agents
+pip install -r requirements.txt
+```
+
+### 2. Configure Environment
+
+Copy the template and configure your environment:
+
+```bash
+# Copy template to project root
+cp .env.template ../.env
+
+# Edit the .env file with your configuration
+nano ../.env
+```
+
+**For Testing/Development (Mock Mode):**
+
+- Leave `PRIVATE_KEY` empty
+- The agent will generate mock evaluations and attestation UIDs
+- Perfect for frontend development!
+
+**For Production (Real EAS Attestations):**
+
+- Set `PRIVATE_KEY` with your Ethereum private key
+- Ensure your wallet has ETH for gas fees
+- Set `RPC_URL` to your Infura/Alchemy endpoint
+
+### 3. Run the Agent
+
+```bash
+python evaluator_agent.py
+```
+
+The agent will start on `http://localhost:8000` with:
+
+- ✅ REST API endpoint at `/evaluate`
+- ✅ Chat protocol for interactive evaluations
+- ✅ Automatic EAS attestation (or mock mode)
+
+## 📋 Usage Examples
+
+### REST API
+
+Evaluate an agent via REST:
+
+```bash
+curl -X POST http://localhost:8000/evaluate \
+  -H "Content-Type: application/json" \
+  -d '{
+    "agent_address": "agent1q0h70caed8ax769shpemapzkyk65uscw4xwk6dc4t3emvp5jdcvqs9xs32y"
+  }'
+```
+
+**Response:**
+
+```json
+{
+  "success": true,
+  "agent_address": "agent1q...",
+  "attestation_uid": "0x1234...",
+  "final_score": 87,
+  "grade": "A",
+  "message": "Agent evaluated successfully! Score: 87/100 (A). Attestation created on EAS."
+}
+```
+
+### Chat Protocol
+
+Send an agent address via the uAgents chat protocol and receive:
+
+1. Evaluation scores
+2. Grade (A+ to F)
+3. EAS attestation UID
 
 ## 🏗️ Architecture
 
-The agent consists of several key components:
-
-- **ResolverAttestationAgent**: Main agent class for attestation operations
-- **EvaluationScore**: Data structure for agent evaluation results
-- **HumanVerificationData**: Data structure for human verification attestations
-- **AttestationRequest**: Request structure for attestation creation
-
-## 🚀 Features
-
-### Core Functionality
-
-- **Agent Evaluation Processing**: Validates and processes evaluation data from AI agents
-- **Attestation Creation**: Creates verifiable attestations on the blockchain
-- **Human Verification**: Manages human verification workflows
-- **Authorization Management**: Controls who can create attestations
-- **Schema Management**: Handles attestation schemas for different data types
-
-### Advanced Features
-
-- **Async/Await Support**: Full async support for blockchain interactions
-- **Comprehensive Logging**: Detailed logging for debugging and monitoring
-- **Error Handling**: Robust error handling for network and contract issues
-- **Gas Optimization**: Automatic gas estimation and optimization
-- **Batch Processing**: Support for processing multiple evaluations
-
-## 📦 Installation
-
-### Prerequisites
-
-- Python 3.13+
-- Web3.py
-- aiohttp
-- eth-account
-
-### Setup
-
-```bash
-# Install dependencies
-pip install -r requirements.txt
-
-# Copy configuration template
-cp config.template .env
-
-# Edit .env with your configuration
+```
+Frontend → REST POST → Evaluator Agent
+                            ↓
+                    ┌───────┴────────┐
+                    │                │
+              ASI:1 Evaluator   Attestation Manager
+              (Mock or Real)    (EAS Integration)
+                    │                │
+                    └───────┬────────┘
+                            ↓
+                    EvaluationResponse
+                    + Attestation UID
 ```
 
-## 🔧 Configuration
+### Components
 
-The agent requires the following configuration:
+1. **`evaluator_agent.py`** - Main agent implementation
 
-```python
-agent = ResolverAttestationAgent(
-    rpc_url="https://sepolia.infura.io/v3/YOUR_PROJECT_ID",
-    eas_contract_address="0x4200000000000000000000000000000000000021",
-    resolver_contract_address="YOUR_RESOLVER_CONTRACT_ADDRESS",
-    private_key="YOUR_PRIVATE_KEY",
-    chain_id=11155111  # Sepolia testnet
-)
+   - REST endpoint: `/evaluate`
+   - Chat protocol handler
+   - Evaluation + attestation orchestration
+
+2. **`AttestationManager`** - EAS Integration
+
+   - Encodes evaluation data
+   - Creates blockchain attestations
+   - Handles Web3 transactions
+   - Mock mode for testing
+
+3. **`ASI1Evaluator`** - Agent Evaluation
+
+   - Generates evaluation scores
+   - Mock mode: realistic random scores
+   - Future: Real ASI:1 evaluation
+
+4. **`EvaluationScore`** - Data Structure
+   - All evaluation metrics
+   - Matches EAS schema exactly
+   - Ready for blockchain encoding
+
+## 📊 Evaluation Metrics
+
+The agent evaluates other agents across three dimensions:
+
+1. **Correctness** (40% weight)
+   - How accurate are the agent's responses?
+   - Confidence level (0-10)
+2. **Capabilities** (30% weight)
+   - What can the agent do?
+   - Range of supported operations
+3. **Domain Knowledge** (30% weight)
+   - How well does it understand its domain?
+   - Depth of expertise
+
+**Final Score** = Weighted average (0-100)
+**Grade** = A+, A, B+, B, C+, C, etc.
+
+## 🔗 EAS Schema
+
+The agent uses the official Truth Swarm EAS schema:
+
+**Schema UID:**
+
 ```
+0xcd0ab40423e8919b72b665cb563c82b895acc2b690626f2c8180e1db83f6f5bc
+```
+
+**Schema Fields:**
+
+- `evaluatedAgentAddress` (string)
+- `evaluatorAgentAddress` (string)
+- `timestamp` (uint256)
+- `finalScore` (uint256)
+- `overallConfidence` (uint8)
+- `grade` (string)
+- `correctnessScore`, `capabilitiesScore`, `domainScore` (uint256 each)
+- Confidence levels and weights for each dimension
+- `detailsCID` (string) - IPFS CID for detailed results
+
+## 🔧 Configuration Options
 
 ### Environment Variables
 
-- `RPC_URL`: Ethereum RPC endpoint
-- `EAS_CONTRACT_ADDRESS`: EAS contract address
-- `RESOLVER_CONTRACT_ADDRESS`: AttesterResolver contract address
-- `PRIVATE_KEY`: Private key for signing transactions
-- `CHAIN_ID`: Ethereum chain ID
+| Variable                    | Description               | Required       | Default            |
+| --------------------------- | ------------------------- | -------------- | ------------------ |
+| `RPC_URL`                   | Ethereum RPC endpoint     | No             | Sepolia Infura     |
+| `CHAIN_ID`                  | Blockchain network ID     | No             | 11155111 (Sepolia) |
+| `EAS_CONTRACT_ADDRESS`      | EAS contract address      | No             | Sepolia EAS        |
+| `RESOLVER_CONTRACT_ADDRESS` | Your resolver contract    | No             | -                  |
+| `PRIVATE_KEY`               | Wallet private key        | No (mock mode) | -                  |
+| `AGENTVERSE_API_KEY`        | Agentverse deployment key | No             | -                  |
 
-## 📖 Usage
+### Code Configuration
 
-### Basic Agent Evaluation
+In `evaluator_agent.py`:
 
 ```python
-from agents.resolver_atestation_agent import ResolverAttestationAgent, EvaluationScore
-import time
+# Line 366: Toggle mock vs real evaluation
+asi1_evaluator = ASI1Evaluator(agent, use_mock=True)  # Set False for ASI:1
 
-# Initialize the agent
-agent = ResolverAttestationAgent(
-    rpc_url="https://sepolia.infura.io/v3/YOUR_PROJECT_ID",
-    eas_contract_address="0x4200000000000000000000000000000000000021",
-    resolver_contract_address="YOUR_RESOLVER_CONTRACT_ADDRESS",
-    private_key="YOUR_PRIVATE_KEY",
-    chain_id=11155111
+# Line 361: Change port
+agent = Agent(
+    name="evaluator_attestation_agent",
+    port=8000,  # Change this
+    # ...
 )
-
-# Create evaluation data
-evaluation_data = EvaluationScore(
-    evaluatedAgentAddress="0x1234567890123456789012345678901234567890",
-    evaluatorAgentAddress=agent.address,
-    timestamp=int(time.time()),
-    finalScore=85,
-    overallConfidence=8,
-    grade="B+",
-    correctnessScore=90,
-    correctnessConfidence=9,
-    correctnessEffectiveScore=81,
-    correctnessWeight=40,
-    capabilitiesScore=80,
-    capabilitiesConfidence=7,
-    capabilitiesEffectiveScore=56,
-    capabilitiesWeight=30,
-    domainScore=85,
-    domainConfidence=8,
-    domainEffectiveScore=68,
-    domainWeight=30,
-    detailsCID="bafkreih5aznjvttude6c3w2l5y6kmzq7l4fex2k4d3a2b1c9d8e7f6g5h4i3j2k1l"
-)
-
-# Process evaluation and create attestation
-if await agent.process_evaluation_data(evaluation_data):
-    attestation_uid = await agent.create_evaluation_attestation(evaluation_data)
-    print(f"Evaluation attestation created: {attestation_uid}")
 ```
-
-### Human Verification
-
-```python
-from agents.resolver_atestation_agent import HumanVerificationData
-
-# Create human verification data
-verification_data = HumanVerificationData(
-    originalAttestationUID=attestation_uid,
-    verifier=agent.address,
-    timestamp=int(time.time()),
-    approved=True,
-    comment="Verified manually - agent performed well in tests"
-)
-
-# Create human verification attestation
-human_attestation_uid = await agent.create_human_verification_attestation(verification_data)
-print(f"Human verification attestation created: {human_attestation_uid}")
-```
-
-### Authorization Management
-
-```python
-# Check if agent is authorized
-is_authorized = await agent._is_authorized_attester()
-print(f"Agent authorized: {is_authorized}")
-
-# Get authorized attesters
-attesters = await agent.get_authorized_attesters()
-print(f"Authorized attesters: {attesters}")
-```
-
-## 📊 Data Structures
-
-### EvaluationScore
-
-Represents a comprehensive agent evaluation:
-
-```python
-@dataclass
-class EvaluationScore:
-    evaluatedAgentAddress: str      # Address of the agent being evaluated
-    evaluatorAgentAddress: str     # Address of the evaluating agent
-    timestamp: int                 # Unix timestamp of evaluation
-    finalScore: int               # Overall score (0-100)
-    overallConfidence: int        # Confidence level (1-10)
-    grade: str                    # Letter grade (A+, A, B+, etc.)
-    
-    # Detailed scoring breakdown
-    correctnessScore: int         # Correctness score (0-100)
-    correctnessConfidence: int   # Correctness confidence (1-10)
-    correctnessEffectiveScore: int  # Weighted correctness score
-    correctnessWeight: int        # Weight percentage for correctness
-    
-    capabilitiesScore: int       # Capabilities score (0-100)
-    capabilitiesConfidence: int  # Capabilities confidence (1-10)
-    capabilitiesEffectiveScore: int  # Weighted capabilities score
-    capabilitiesWeight: int      # Weight percentage for capabilities
-    
-    domainScore: int             # Domain knowledge score (0-100)
-    domainConfidence: int        # Domain confidence (1-10)
-    domainEffectiveScore: int    # Weighted domain score
-    domainWeight: int            # Weight percentage for domain
-    
-    detailsCID: str              # IPFS CID for detailed evaluation data
-```
-
-### HumanVerificationData
-
-Represents human verification of an attestation:
-
-```python
-@dataclass
-class HumanVerificationData:
-    originalAttestationUID: str   # UID of the original attestation
-    verifier: str                # Address of the human verifier
-    timestamp: int              # Unix timestamp of verification
-    approved: bool              # Whether the attestation is approved
-    comment: str                # Human comment on the verification
-```
-
-## 🔍 API Reference
-
-### Core Methods
-
-#### `process_evaluation_data(evaluation_data: EvaluationScore) -> bool`
-
-Processes and validates evaluation data before attestation creation.
-
-**Parameters:**
-- `evaluation_data`: The evaluation data to process
-
-**Returns:**
-- `bool`: True if processing successful, False otherwise
-
-#### `create_evaluation_attestation(evaluation_data: EvaluationScore) -> str`
-
-Creates an attestation for agent evaluation data.
-
-**Parameters:**
-- `evaluation_data`: The evaluation data to attest
-
-**Returns:**
-- `str`: Attestation UID if successful, None otherwise
-
-#### `create_human_verification_attestation(verification_data: HumanVerificationData) -> str`
-
-Creates a human verification attestation.
-
-**Parameters:**
-- `verification_data`: The verification data
-
-**Returns:**
-- `str`: Attestation UID if successful, None otherwise
-
-#### `_is_authorized_attester() -> bool`
-
-Checks if the current agent is authorized to create attestations.
-
-**Returns:**
-- `bool`: True if authorized, False otherwise
-
-#### `get_authorized_attesters() -> List[str]`
-
-Gets the list of authorized attesters.
-
-**Returns:**
-- `List[str]`: List of authorized attester addresses
 
 ## 🧪 Testing
 
-### Local Testing
+### Test with Mock Data
+
+1. Run agent without `PRIVATE_KEY` in `.env`
+2. Agent generates mock evaluations
+3. Returns mock attestation UIDs
+4. Perfect for frontend development
 
 ```bash
-# Run simple agent test
-cd test-env
-python test_agent_simple.py
-
-# Run integration test
-python test_agent_integration.py
+# Test REST endpoint
+curl -X POST http://localhost:8000/evaluate \
+  -H "Content-Type: application/json" \
+  -d '{"agent_address": "agent1qtest123456789012345678901234567890123456789012345678901"}'
 ```
 
-### Test Scenarios
+### Test with Real Blockchain
 
-The agent tests cover:
+1. Set `PRIVATE_KEY` in `.env`
+2. Ensure wallet has ETH for gas
+3. Agent creates real EAS attestations
+4. Check attestations on:
+   - Sepolia: https://sepolia.easscan.org/
+   - Base: https://base.easscan.org/
 
-1. **Authorization Check**: Verify agent authorization status
-2. **Evaluation Processing**: Test evaluation data validation
-3. **Attestation Creation**: Test evaluation attestation creation
-4. **Human Verification**: Test human verification workflow
-5. **Error Handling**: Test various error scenarios
+## 📁 Files
 
-## 🔒 Security Considerations
+```
+agents/
+├── evaluator_agent.py           # Main agent (integrated solution)
+├── resolver_atestation_agent.py # Original resolver agent (reference)
+├── requirements.txt             # Python dependencies
+├── .env.template                # Environment template
+├── config.template              # Legacy config (reference)
+└── README.md                    # This file
+```
 
-### Private Key Management
+## 🎯 For Hackathon
 
-- **Never commit private keys** to version control
-- Use environment variables for sensitive data
-- Consider using hardware wallets for production
+The agent is **hackathon-ready** with:
 
-### Input Validation
+✅ **Mock Mode** - Test without blockchain
+✅ **REST API** - Easy frontend integration
+✅ **Chat Protocol** - Interactive demos
+✅ **Realistic Scores** - Generated with variation
+✅ **Fast** - Instant responses in mock mode
 
-- All input data is validated before processing
-- Schema validation ensures data integrity
-- Gas limits prevent excessive transaction costs
+Just run `python evaluator_agent.py` and start evaluating agents!
 
-### Authorization
+## 🚢 Deployment
 
-- Only authorized attesters can create attestations
-- Authorization is checked on-chain
-- Regular authorization audits recommended
+### Local Development
 
-## 🐛 Error Handling
+```bash
+python evaluator_agent.py
+```
 
-The agent includes comprehensive error handling:
+### Agentverse Deployment
 
-- **Network Errors**: Retry logic for network issues
-- **Contract Errors**: Detailed error messages for contract failures
-- **Validation Errors**: Clear validation error messages
-- **Gas Errors**: Automatic gas estimation and adjustment
+1. Set `AGENTVERSE_API_KEY` in `.env`
+2. Change `mailbox=True` in code (already enabled)
+3. Deploy to Agentverse for 24/7 availability
 
-### Common Error Scenarios
+## 🤝 Integration with Frontend
 
-1. **Insufficient Gas**: Increase gas limit in configuration
-2. **Unauthorized**: Ensure agent is in authorized attesters list
-3. **Invalid Data**: Check evaluation data structure and values
-4. **Network Issues**: Verify RPC endpoint connectivity
+Your frontend can call the REST endpoint:
 
-## 📈 Performance
+```javascript
+// Example: Evaluate an agent
+const response = await fetch("http://localhost:8000/evaluate", {
+  method: "POST",
+  headers: { "Content-Type": "application/json" },
+  body: JSON.stringify({
+    agent_address: "agent1q...",
+  }),
+});
 
-### Optimization Features
+const result = await response.json();
+console.log("Attestation UID:", result.attestation_uid);
+console.log("Score:", result.final_score);
+console.log("Grade:", result.grade);
+```
 
-- **Async Operations**: Non-blocking blockchain interactions
-- **Gas Estimation**: Automatic gas optimization
-- **Batch Processing**: Efficient handling of multiple evaluations
-- **Connection Pooling**: Reuse of HTTP connections
+## 🔍 Debugging
 
-### Monitoring
+Check linter errors:
 
-- **Comprehensive Logging**: Detailed operation logs
-- **Performance Metrics**: Track operation timing
-- **Error Tracking**: Monitor and alert on errors
+```bash
+# Ensure packages are installed
+pip list | grep -E "(uagents|web3|eth)"
 
-## 🤝 Contributing
+# Check Python version (should be 3.10+)
+python --version
+```
 
-When contributing to the agent:
+View agent logs:
 
-1. Follow existing code style and patterns
-2. Add comprehensive tests for new functionality
-3. Update documentation for API changes
-4. Ensure all tests pass before submitting
+```bash
+# Agent outputs detailed logs for each evaluation
+# Look for:
+# 📊 Generated evaluation: Score=87/100, Grade=A
+# 🔗 Creating attestation on EAS...
+# ✅ Attestation created: 0x1234...
+```
 
-### Development Guidelines
+## 📚 Resources
 
-- Use type hints for all function parameters and returns
-- Include comprehensive docstrings
-- Add logging for important operations
-- Handle errors gracefully with appropriate messages
-
-## 📚 Additional Resources
-
+- [uAgents Documentation](https://fetch.ai/docs)
 - [EAS Documentation](https://docs.attest.sh/)
-- [Web3.py Documentation](https://web3py.readthedocs.io/)
-- [Ethereum Development Guide](https://ethereum.org/developers/)
+- [Fetch.ai Innovation Lab](https://innovationlab.fetch.ai/)
+- [Truth Swarm Project](../README.md)
+
+## 🆘 Support
+
+For issues:
+
+1. Check linter errors: Look at import warnings
+2. Verify Python interpreter: Use correct venv
+3. Check `.env` configuration: Especially `PRIVATE_KEY` for production
+4. Review agent logs: Detailed info on startup
+
+---
+
+Built with ❤️ for Truth Swarm Hackathon
