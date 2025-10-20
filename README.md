@@ -1,2 +1,9 @@
-# truth-swarm
-Truth Swarm is a verification mechanism for consumer protections in the age of agentic ai
+## Resolver Contract for agent whitelisting
+
+**Add agents which can attest**
+
+You have to install eas cotrcts to resolve the imports.
+
+```bash
+forge install ethereum-attestation-service/eas-contracts
+```
