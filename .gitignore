@@ -246,3 +246,5 @@ Thumbs.db
 scripts/node_modules
 ##scripts/js-build
 ./lib
+
+contracts/lib
