@@ -3,7 +3,7 @@ Integrated Evaluator + Attestation Agent
 
 This agent combines agent evaluation with blockchain attestation:
 1. Receives evaluation requests via REST POST or Chat Protocol
-2. Evaluates agents using ASI:1 (or mock scores for demo/hackathon)
+2. Evaluates agents using evaluator knowledge base (or mock scores for demo/hackathon)
 3. Creates attestations on Ethereum Attestation Service (EAS)
 4. Returns attestation UID to the frontend
 
@@ -15,23 +15,12 @@ Usage:
 import os
 from pathlib import Path
 from datetime import datetime, timezone
-from uuid import uuid4
 from typing import Optional
 from dataclasses import dataclass
 import random
 
 # uAgents framework
-from uagents import Agent, Context, Protocol, Model
-
-# Chat protocol
-from uagents_core.contrib.protocols.chat import (
-    ChatAcknowledgement,
-    ChatMessage,
-    EndSessionContent,
-    StartSessionContent,
-    TextContent,
-    chat_protocol_spec,
-)
+from uagents import Agent, Context, Model
 
 # Blockchain/EAS interaction
 from web3 import Web3
@@ -39,6 +28,10 @@ from web3.middleware import ExtraDataToPOAMiddleware
 from eth_abi import encode
 
 from dotenv import load_dotenv
+
+# Import protocol modules
+from human_chat_protocol import create_chat_protocol
+from eval_protocol import create_evaluation_protocol, EvaluationRequest, EvaluationResponse
 
 # Load environment variables from project root
 project_root = Path(__file__).parent.parent
@@ -72,27 +65,10 @@ class EvaluationScore:
 
 
 # ===== UAGENTS MESSAGE MODELS =====
-
-class EvaluationRequest(Model):
-    """Request to evaluate an agent"""
-    agent_address: str
-    evaluation_type: str = "comprehensive"
-    requester: str = ""
-
-
-class EvaluationResponse(Model):
-    """Response with evaluation and attestation"""
-    success: bool
-    agent_address: str
-    attestation_uid: Optional[str] = None
-    final_score: int
-    grade: str
-    message: str
-    error: Optional[str] = None
+# (Now imported from eval_protocol.py)
 
 
 # ===== ATTESTATION MANAGER =====
-
 class AttestationManager:
     """Manages EAS attestations for agent evaluations"""
     
@@ -263,10 +239,18 @@ class AttestationManager:
             return None
 
 
-# ===== ASI:1 EVALUATOR =====
-
-class ASI1Evaluator:
-    """Evaluates agents using ASI:1 or mock data"""
+# ===== AGENT EVALUATOR =====
+class AgentEvaluator:
+    """
+    Evaluates agents and generates scores
+    
+    Note: This is NOT using ASI:1 for evaluation. ASI:1 is only used in the 
+    chat interface (chat_protocol.py) for parsing user messages.
+    
+    This class handles the actual agent evaluation logic:
+    - Mock scores (for demo/testing)
+    - Real evaluation logic (to be implemented)
+    """
     
     def __init__(self, agent: Agent, use_mock: bool = True):
         self.agent = agent
@@ -278,8 +262,9 @@ class ASI1Evaluator:
         if self.use_mock:
             return self._generate_mock_evaluation(agent_address, ctx)
         else:
-            # Real ASI:1 evaluation (implement when needed)
-            return await self._asi1_evaluation(agent_address, ctx)
+            # Real evaluation logic (implement when needed)
+            # Could use: API calls, agent interaction, capability tests, etc.
+            return await self._real_evaluation(agent_address, ctx)
     
     def _generate_mock_evaluation(self, agent_address: str, ctx: Context) -> EvaluationScore:
         """Generate realistic mock evaluation scores for demo/hackathon"""
@@ -337,44 +322,43 @@ class ASI1Evaluator:
             detailsCID=f"bafkreimock{random.randint(1000, 9999)}evaluation"
         )
     
-    async def _asi1_evaluation(self, agent_address: str, ctx: Context) -> EvaluationScore:
-        """Real ASI:1 evaluation (placeholder for future implementation)"""
-        # TODO: Implement real ASI:1 evaluation using structured output
-        # This would send evaluation prompts to ASI:1 and parse responses
-        ctx.logger.info("🤖 ASI:1 evaluation not yet implemented, using mock")
+    async def _real_evaluation(self, agent_address: str, ctx: Context) -> EvaluationScore:
+        """
+        Real evaluation logic (placeholder for future implementation)
+        
+        This could include:
+        - Querying the agent's capabilities
+        - Running test interactions
+        - Analyzing response quality
+        - Checking protocol adherence
+        - Measuring performance metrics
+        """
+        # TODO: Implement real evaluation logic
+        ctx.logger.info("🤖 Real evaluation not yet implemented, using mock")
+        # open chat protocol with agent_address
+        # evaluate chat in chat protocol,
+        # generate evaluation score and details
+        # add ipfs storage
         return self._generate_mock_evaluation(agent_address, ctx)
 
 
 # ===== AGENT SETUP =====
-
 agent = Agent(
     name="evaluator_attestation_agent",
     #seed="evaluator_attestation_unique_seed",
     seed="",
     port=8000,
     endpoint=["http://localhost:8000/submit"],
-    mailbox=True  # Enable for Agentverse integration
+    #mailbox=True  -> Enable for Agentverse integration overriden by endpoint implementation
 )
 
-# Initialize managers
+
+# ===== CLASSES SETUP =====
 attestation_manager = AttestationManager()
-asi1_evaluator = ASI1Evaluator(agent, use_mock=True)  # Set to False for real ASI:1
-
-# Create protocols
-chat_proto = Protocol(spec=chat_protocol_spec)
-eval_proto = Protocol(name="evaluation_protocol", version="1.0")
+agent_evaluator = AgentEvaluator(agent, use_mock=True)  # Set to False for real evaluation logic
 
 
-# ===== HELPER FUNCTIONS =====
-
-def create_text_chat(text: str, end_session: bool = True) -> ChatMessage:
-    """Create chat message with text content"""
-    content = [TextContent(type="text", text=text)]
-    if end_session:
-        content.append(EndSessionContent(type="end-session"))
-    return ChatMessage(timestamp=datetime.now(timezone.utc), msg_id=uuid4(), content=content)
-
-
+# ===== MAIN EVALUATION FLOW (PROCESS ORCHESTRATION) =====
 async def process_evaluation(agent_address: str, ctx: Context) -> EvaluationResponse:
     """Core evaluation + attestation logic"""
     try:
@@ -392,8 +376,8 @@ async def process_evaluation(agent_address: str, ctx: Context) -> EvaluationResp
                 error="Agent address must start with 'agent1' and be 65 characters long"
             )
         
-        # Step 1: Evaluate agent using ASI:1 (or mock)
-        evaluation_score = await asi1_evaluator.evaluate_agent(agent_address, ctx)
+        # Step 1: Evaluate agent (using mock or real evaluation logic)
+        evaluation_score = await agent_evaluator.evaluate_agent(agent_address, ctx)
         
         # Step 2: Create attestation on EAS
         ctx.logger.info("🔗 Creating attestation on EAS...")
@@ -433,19 +417,24 @@ async def process_evaluation(agent_address: str, ctx: Context) -> EvaluationResp
             error=str(e)
         )
 
+# ===== PROTOCOL SETUP =====
+chat_proto = create_chat_protocol(agent, process_evaluation)
+agent.include(chat_proto, publish_manifest=True)
+
+eval_proto = create_evaluation_protocol(agent, process_evaluation)
+agent.include(eval_proto, publish_manifest=True)
 
 # ===== EVENT HANDLERS =====
-
 @agent.on_event("startup")
 async def startup(ctx: Context):
     ctx.logger.info("=" * 60)
     ctx.logger.info("🚀 Evaluator Attestation Agent Started!")
     ctx.logger.info("=" * 60)
     ctx.logger.info(f"📍 Agent Address: {agent.address}")
-    ctx.logger.info(f"🌐 REST Endpoint: http://localhost:8000/evaluate")
-    ctx.logger.info(f"💬 Chat Protocol: Enabled")
+    ctx.logger.info(f"🌐 REST Endpoints: /evaluate, /chat")
+    ctx.logger.info(f"💬 Chat Protocol: Enabled (uAgents chat)")
     ctx.logger.info(f"🔗 EAS Integration: {'Enabled' if attestation_manager.enabled else 'Mock Mode'}")
-    ctx.logger.info(f"🤖 Evaluation Mode: {'Mock Scores' if asi1_evaluator.use_mock else 'ASI:1'}")
+    ctx.logger.info(f"🤖 Evaluation Mode: {'Mock Scores' if agent_evaluator.use_mock else 'Real Logic'}")
     ctx.logger.info("=" * 60)
 
 
@@ -455,6 +444,17 @@ async def shutdown(ctx: Context):
 
 
 # ===== REST HANDLER =====
+class ChatRequest(Model):
+    """Request to chat with the agent"""
+    message: str
+    session_id: str = ""
+
+
+class ChatResponse(Model):
+    """Response from chat"""
+    response: str
+    session_id: str
+
 
 @agent.on_rest_post("/evaluate", EvaluationRequest, EvaluationResponse)
 async def rest_evaluate(ctx: Context, request: EvaluationRequest) -> EvaluationResponse:
@@ -470,92 +470,40 @@ async def rest_evaluate(ctx: Context, request: EvaluationRequest) -> EvaluationR
     return await process_evaluation(request.agent_address, ctx)
 
 
-# ===== CHAT PROTOCOL HANDLERS =====
-
-@chat_proto.on_message(ChatMessage)
-async def handle_chat_message(ctx: Context, sender: str, msg: ChatMessage):
-    """Handle chat-based evaluation requests"""
+@agent.on_rest_post("/chat", ChatRequest, ChatResponse)
+async def rest_chat(ctx: Context, request: ChatRequest) -> ChatResponse:
+    """
+    REST endpoint for conversational chat
     
-    # Send acknowledgement
-    await ctx.send(sender, ChatAcknowledgement(
-        timestamp=datetime.now(timezone.utc),
-        acknowledged_msg_id=msg.msg_id
-    ))
+    This uses ASI:1 Mini for general knowledge with automatic evaluation detection.
     
-    # Greet on session start
-    if any(isinstance(item, StartSessionContent) for item in msg.content):
-        await ctx.send(sender, create_text_chat(
-            "👋 Hi! I'm the Agent Evaluator with EAS attestation.\n\n"
-            "Send me an agent address (starting with 'agent1') and I'll:\n"
-            "1. Evaluate the agent's capabilities\n"
-            "2. Generate an evaluation score\n"
-            "3. Create an attestation on Ethereum Attestation Service\n"
-            "4. Return the attestation UID\n\n"
-            "Try it now! 🚀",
-            end_session=False
-        ))
-        return
+    Example:
+    curl -X POST http://localhost:8000/chat \
+      -H "Content-Type: application/json" \
+      -d '{"message": "Can you evaluate agent1q... for me?", "session_id": "123"}'
+    """
+    from human_chat_protocol import ASI1ChatHandler
     
-    # Process text content
-    text = msg.text()
-    if not text:
-        return
-
-    ctx.logger.info(f"📨 Chat evaluation request from {sender}: {text}")
+    ctx.logger.info(f"💬 REST chat request: {request.message}")
     
-    # Check if text contains an agent address
-    if text.startswith("agent1") and len(text) == 65:
-        # Evaluate the agent
-        result = await process_evaluation(text, ctx)
-        
-        # Format response
-        if result.success:
-            response_text = (
-                f"✅ {result.message}\n\n"
-                f"📊 Final Score: {result.final_score}/100\n"
-                f"🎓 Grade: {result.grade}\n"
-                f"🔗 Attestation UID: {result.attestation_uid}"
-            )
-        else:
-            response_text = f"❌ {result.message}\n\nError: {result.error}"
-        
-        await ctx.send(sender, create_text_chat(response_text, end_session=True))
-    else:
-        await ctx.send(sender, create_text_chat(
-            "❌ Invalid agent address.\n\n"
-            "Please provide a valid agent address that:\n"
-            "• Starts with 'agent1'\n"
-            "• Is exactly 65 characters long\n\n"
-            "Example: agent1q0h70caed8ax769shpemapzkyk65uscw4xwk6dc4t3emvp5jdcvqs9xs32y",
-            end_session=True
-        ))
-
-
-@chat_proto.on_message(ChatAcknowledgement)
-async def handle_ack(ctx: Context, sender: str, msg: ChatAcknowledgement):
-    """Handle chat acknowledgements"""
-    pass
-
-
-# ===== PROTOCOL MESSAGE HANDLER =====
-
-@eval_proto.on_message(model=EvaluationRequest, replies=EvaluationResponse)
-async def handle_eval_request(ctx: Context, sender: str, msg: EvaluationRequest):
-    """Handle direct protocol-based evaluation requests from other agents"""
-    ctx.logger.info(f"📨 Protocol evaluation request from {sender} for: {msg.agent_address}")
+    # Create handler and process message
+    handler = ASI1ChatHandler(agent, process_evaluation)
+    response_text = await handler.chat(
+        request.message,
+        request.session_id or f"rest_{datetime.now(timezone.utc).timestamp()}",
+        ctx
+    )
     
-    result = await process_evaluation(msg.agent_address, ctx)
-    await ctx.send(sender, result)
+    return ChatResponse(
+        response=response_text,
+        session_id=request.session_id
+    )
 
 
-# ===== ATTACH PROTOCOLS =====
 
-agent.include(chat_proto, publish_manifest=True)
-agent.include(eval_proto, publish_manifest=True)
 
 
 # ===== MAIN =====
-
 if __name__ == "__main__":
     print("""
 ╔══════════════════════════════════════════════════════════════════╗
@@ -567,11 +515,14 @@ This agent combines AI-powered agent evaluation with blockchain attestation:
 ✅ Evaluate Agents - Score agents on correctness, capabilities, and domain knowledge
 ✅ EAS Attestation - Create immutable attestations on Ethereum Attestation Service
 ✅ REST API - Accept evaluation requests from frontend applications
-✅ Chat Protocol - Interactive evaluation via uAgents chat protocol
+✅ Chat Protocol - Interactive evaluation via uAgents chat
 
-📋 REST Endpoint:
+📋 REST Endpoints:
    POST http://localhost:8000/evaluate
    Body: {"agent_address": "agent1q..."}
+   
+   POST http://localhost:8000/chat
+   Body: {"message": "...", "session_id": "..."}
    
    Example:
    curl -X POST http://localhost:8000/evaluate \\
@@ -580,6 +531,7 @@ This agent combines AI-powered agent evaluation with blockchain attestation:
 
 💬 Chat Protocol:
    Send an agent address via chat to trigger evaluation
+   For general questions, you'll be directed to specialized Agentverse agents!
 
 🛑 Stop with Ctrl+C
     """)

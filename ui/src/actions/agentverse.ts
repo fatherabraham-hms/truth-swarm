@@ -15,6 +15,11 @@ export interface AgentChatSession {
   messages: ChatMessage[];
 }
 
+// Url defintions
+
+const agentInfoUrl = `https://agentverse.ai/v1/search/agents`;
+const localAgentUrl = `http://localhost:8000/submit`;
+
 /**
  * Fetch agent information from Agentverse API
  * @param address - The agent address to fetch
@@ -24,12 +29,9 @@ export async function fetchAgentverseInfo(
   address: string
 ): Promise<AgentVerseInfo | null> {
   try {
-    const response = await fetch(
-      `https://agentverse.ai/v1/search/agents/${address}`,
-      {
-        next: { revalidate: 3600 }, // Cache for 1 hour
-      }
-    );
+    const response = await fetch(`${agentInfoUrl}/${address}`, {
+      next: { revalidate: 3600 }, // Cache for 1 hour
+    });
 
     if (!response.ok) {
       console.warn(`Agent ${address} not found in Agentverse`);
@@ -91,22 +93,20 @@ export async function sendMessageToAgent(
   sessionId?: string
 ): Promise<{ response: string; sessionId: string }> {
   try {
-    // Agentverse agents typically expose HTTP endpoints
-    // The endpoint format is: https://agentverse.ai/v1beta1/engine/chat
-    const response = await fetch("https://agentverse.ai/v1beta1/engine/chat", {
+    const evaluatorUrl =
+      process.env.NEXT_PUBLIC_EVALUATOR_AGENT_URL || "http://localhost:8000";
+
+    // Send message to agent's chat endpoint (with ASI:1 integration)
+    const response = await fetch(`${evaluatorUrl}/chat`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        agent_address: agentAddress,
-        message: {
-          type: "text",
-          content: message,
-        },
+        message: message,
         session_id: sessionId || generateSessionId(),
       }),
-      cache: "no-store", // Don't cache chat responses
+      cache: "no-store",
     });
 
     if (!response.ok) {
@@ -118,16 +118,18 @@ export async function sendMessageToAgent(
     const data = await response.json();
 
     return {
-      response:
-        data.message?.content || data.response || "No response from agent",
+      response: data.response,
       sessionId: data.session_id || sessionId || generateSessionId(),
     };
   } catch (error) {
-    console.error(`Failed to send message to agent ${agentAddress}:`, error);
+    console.error(`Failed to communicate with evaluator:`, error);
 
-    // Return a fallback response for demo purposes
     return {
-      response: `I'm having trouble connecting to the agent right now. This is a simulated response for development. You asked: "${message}"`,
+      response: `❌ Could not connect to the evaluator agent. Make sure it's running at ${
+        process.env.NEXT_PUBLIC_EVALUATOR_AGENT_URL || "http://localhost:8000"
+      }
+
+Error: ${error instanceof Error ? error.message : "Unknown error"}`,
       sessionId: sessionId || generateSessionId(),
     };
   }
@@ -139,4 +141,42 @@ function generateSessionId(): string {
 
 export async function getSampleAgentAddress(): Promise<string> {
   return "agent1qw254tc8q3mcmrseem0pmhu2jd0j7urn2e9cd5tgcg88kmy9wkqhysksdwf";
+}
+
+/**
+ * Test connection to the local evaluator agent
+ * Useful for debugging connectivity issues
+ */
+export async function testAgentConnection(): Promise<{
+  connected: boolean;
+  agentAddress?: string;
+  error?: string;
+}> {
+  try {
+    const evaluatorUrl =
+      process.env.NEXT_PUBLIC_EVALUATOR_AGENT_URL || "http://localhost:8000";
+
+    const response = await fetch(evaluatorUrl, {
+      method: "GET",
+      cache: "no-store",
+    });
+
+    if (response.ok) {
+      return {
+        connected: true,
+        agentAddress: process.env.NEXT_PUBLIC_EVALUATOR_AGENT_ADDRESS,
+      };
+    }
+
+    return {
+      connected: false,
+      error: `Agent responded with status: ${response.status}`,
+    };
+  } catch (error) {
+    return {
+      connected: false,
+      error:
+        error instanceof Error ? error.message : "Unknown connection error",
+    };
+  }
 }
