@@ -9,6 +9,7 @@ from uagents_core.contrib.protocols.chat import (
     TextContent,
     chat_protocol_spec,
 )
+from openai import OpenAI
 from datetime import datetime
 from uuid import uuid4
 import random
@@ -24,7 +25,7 @@ if not SEED_PHRASE:
     raise ValueError("TRUTH_SWARM_AGENT_SEED_PHRASE environment variable not set")
 
 # Instantiate agent agent1qtak6m7rgytst3zqmu744t0k8z4xytf3zrnct49efqvwxzqc3f3t5rkflj4
-agent = Agent(
+eval_comms_agent = Agent(
     name="truthswarm",
     seed=SEED_PHRASE,
     port=8000,
@@ -78,29 +79,86 @@ class EvalState:
     def __init__(self):
         self.currentQuestionId = ""
         self.currentCategory = ""
-        self.evalResults = []
+        self.currentEvalData = None
+        self.currentResponse = ""
+        self.evalResults = {}
+        self.agent = None
     
     def set_current_question(self, question_id, category):
         self.currentQuestionId = question_id
         self.currentCategory = category
+
+    def set_current_eval_data(self, eval_data):
+        self.currentEvalData = eval_data
+
+    def add_reponse(self, response):
+        self.currentResponse = response
     
-    def add_eval_result(self, question_id, response, evaluation):
-        self.evalResults.append({
-            "questionId": question_id,
-            "response": response,
-            "evaluation": evaluation,
-            "timestamp": datetime.utcnow(),
-            "ratings": {
-                "correctness": 0,
-                "capabilities": 0,
-                "domainKnowledge": 0,
-                "speed": 0
-            }
-        })
+    def add_eval_result(self, correctness, capabilities, domainKnowledge, speed):
+        self.evalResults = {
+                "correctness": correctness,
+                "capabilities": capabilities,
+                "domainKnowledge": domainKnowledge,
+                "speed": speed
+        }
 
 # Global state instance
 eval_state = EvalState()
 
+################# EVALUATOR AGENT #################
+subject_matter = ("Return ONLY valid JSON matching the provided schema. You are an evaluator agent that evaluates the performance of other agents in a game."
+"You evaluate the agent's responses and provide a rating for each category by evaluating the input json expected key.")
+
+client = OpenAI(
+    # By default, we are using the ASI-1 LLM endpoint and model
+    base_url='https://api.asi1.ai/v1',
+
+    # You can get an ASI-1 api key by creating an account at https://asi1.ai/dashboard/api-keys
+    api_key=os.getenv("ASI1_API_KEY"),
+)
+
+def run_evaluator_agent(eval_data, tested_agent_response):
+    response = 'I am afraid something went wrong and I am unable to answer your question at the moment'
+    
+    if not eval_data or not tested_agent_response:
+        print("No eval data or tested agent response")
+    
+    print("Running test scoring...")
+    try:
+        r = client.chat.completions.create(
+            model="asi1-mini",
+            messages=[
+                {"role": "system", "content": f"""
+        {subject_matter}. If the user asks 
+        about any other topics, you should politely say that you do not know about them.
+                """},
+                {"role": "user", "content": eval_data},
+            ],
+            response_format={
+                "type": "json_schema",
+                "json_schema": {
+                    "type": "object",
+                    "properties": {
+                        "correctness": {"type": "number"},
+                        "capabilities": {"type": "number"},
+                        "domainKnowledge": {"type": "number"},
+                        "speed": {"type": "number"}
+                    },
+                    "required": ["correctness", "capabilities", "domainKnowledge", "speed"]
+                }
+            },
+            temperature=0.1,
+            stream=false,
+            max_tokens=2048,
+        )
+
+        response = str(r.choices[0].message.content)
+    except:
+        print('Error querying model')
+    return response
+
+
+################# UTIITY FUNCTIONS #################
 
 def retrieveCategoryByAgentAddress(agentAddress):
     category = None
@@ -123,10 +181,11 @@ def retrievePromptsByCategory(category):
     
 
 ################# AGENTVERSE HANDLERS #################
-@agent.on_event("startup")
+@eval_comms_agent.on_event("startup")
 async def init_eval(ctx: Context):
     category = retrieveCategoryByAgentAddress(TEST_TARGET_AGENT_ADDRESS)
     evalData = retrievePromptsByCategory(category)
+    eval_state.set_current_eval_data(evalData)
     
     if not evalData:
         ctx.logger.error(f"No eval data found for category: {category}")
@@ -144,7 +203,7 @@ async def init_eval(ctx: Context):
     await ctx.send(
         destination=TEST_TARGET_AGENT_ADDRESS, 
         message=ChatMessage(
-            timestamp=datetime.utcnow(),
+            timestamp=datetime.now(),
             msg_id=uuid4(),
             content=[TextContent(type="text", text=evalData[0]["prompt"])]
         )
@@ -160,39 +219,47 @@ class AIResponse(Model):
         }
 
 ########## AGENT TO AGENT HANDLERS ##########
-@agent.on_message(model=ChatMessage)
+@eval_comms_agent.on_message(model=ChatMessage)
 async def handle_ai_response(ctx: Context, sender: str, msg: ChatMessage):
     # Extract text content from ChatMessage
-    text_content = ""
+    target_agent_response = ""
     for item in msg.content:
         if isinstance(item, TextContent):
-            text_content += item.text
+            target_agent_response += item.text
     
-    ctx.logger.info(f"Received response from {sender}: {text_content[:100]}...")  # Truncate for logging
+    ctx.logger.info(f"Received response from {sender}: {target_agent_response[:100]}...")  # Truncate for logging
 
     #SET AGENT COMMAND
-    if re.match(r"/agent[0-9A-Za-z]{39}/", text_content):
+    if re.match(r"/agent[0-9A-Za-z]{39}/", target_agent_response):
         global TEST_TARGET_AGENT_ADDRESS
-        TEST_TARGET_AGENT_ADDRESS = re.match(r"/agent[0-9A-Za-z]{39}/", text_content).group(0)
+        TEST_TARGET_AGENT_ADDRESS = re.match(r"/agent[0-9A-Za-z]{39}/", target_agent_response).group(0)
         ctx.logger.info(f"Setting TEST_TARGET_AGENT_ADDRESS to {TEST_TARGET_AGENT_ADDRESS}")
         init_eval(ctx)
         return
     #PERFORM EVALUATION
-    else:
-        result = "Evaluated as good" if random.random() > 0.5 else "Evaluated as bad"
-        
-        # Store evaluation result in state
+    else:        
+        eval_state.add_reponse(target_agent_response)
+        eval_result = run_evaluator_agent(eval_state.currentEvalData, target_agent_response)
+
+        if not eval_result:
+            ctx.logger.error(f"No eval result found for question: {eval_state.currentQuestionId}")
+            return
+
         eval_state.add_eval_result(
-            eval_state.currentQuestionId,
-            text_content,
-            result
+            eval_result["correctness"],
+            eval_result["capabilities"],
+            eval_result["domainKnowledge"],
+            eval_result["speed"]
         )
+
+        # eval_state.add_eval_result(
+        #     1,0,0,0    
+        # )
         
-        ctx.logger.info(f"Agent {sender} response evaluated as: {result}")
-        ctx.logger.info(f"Total evaluations completed: {len(eval_state.evalResults)}")
+        ctx.logger.info(f"Total evaluations completed: 1")
 
 ########## HUMAN TO AGENT HANDLERS ##########
-@agent.on_message(model=AIRequest, replies={AIResponse})
+@eval_comms_agent.on_message(model=AIRequest, replies={AIResponse})
 async def do_evaluation(ctx: Context, sender: str, msg: AIRequest):
     ctx.logger.info(f"Received question from {sender}: {msg.question}")
 
@@ -203,4 +270,4 @@ async def do_evaluation(ctx: Context, sender: str, msg: AIRequest):
     )
 
 if __name__ == "__main__":
-    agent.run()
+    eval_comms_agent.run()
