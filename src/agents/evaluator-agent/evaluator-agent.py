@@ -139,8 +139,23 @@ def run_evaluator_agent(eval_data, tested_agent_response):
             model="asi1-mini",
             messages=[
                 {"role": "system", "content": f"""
-        {subject_matter}. If the user asks 
-        about any other topics, you should politely say that you do not know about them.
+        {subject_matter}
+        
+        You will receive evaluation data containing:
+        - human: The original question from the human
+        - context: Context about what the agent should do
+        - response: The agent's actual response
+        
+        Evaluate the agent's response and provide scores (0-5, can be decimals) for:
+        - accuracy: How factually correct is the response?
+        - clarity: How clear and understandable is the response?
+        - completeness: How complete is the response in addressing the question?
+        - relevance: How relevant is the response to the original question?
+        - tone: How appropriate is the tone and helpfulness?
+        - overall_rating: Weighted average of the above scores
+        - overall_reasoning: Explanation of your evaluation
+        
+        Return the exact JSON format specified in the schema. NEVER INCLUDE COMMENTS IN THE JSON RESPONSE.
                 """},
                 {"role": "user", "content": eval_data},
             ],
@@ -149,12 +164,15 @@ def run_evaluator_agent(eval_data, tested_agent_response):
                 "json_schema": {
                     "type": "object",
                     "properties": {
-                        "correctness": {"type": "number"},
-                        "capabilities": {"type": "number"},
-                        "domainKnowledge": {"type": "number"},
-                        "speed": {"type": "number"}
+                        "accuracy": {"type": "number", "minimum": 0, "maximum": 5},
+                        "clarity": {"type": "number", "minimum": 0, "maximum": 5},
+                        "completeness": {"type": "number", "minimum": 0, "maximum": 5},
+                        "relevance": {"type": "number", "minimum": 0, "maximum": 5},
+                        "tone": {"type": "number", "minimum": 0, "maximum": 5},
+                        "overall_rating": {"type": "number", "minimum": 0, "maximum": 5},
+                        "overall_reasoning": {"type": "string"}
                     },
-                    "required": ["correctness", "capabilities", "domainKnowledge", "speed"]
+                    "required": ["accuracy", "clarity", "completeness", "relevance", "tone", "overall_rating", "overall_reasoning"]
                 }
             },
             temperature=0.1,
@@ -163,11 +181,23 @@ def run_evaluator_agent(eval_data, tested_agent_response):
         )
 
         response = str(r.choices[0].message.content)
-        print(f"Raw API response: {response}")
+        # print(f"Raw API response: {response}")
         
         # Try to parse as JSON to validate format
         try:
             import json
+            # remove everythig before the ```json
+            response = response.split('```json')[1]
+            # Remove any leading/trailing whitespace
+            response = response.strip()
+            # Remove any leading/trailing backticks
+            response = response.strip('`')
+            # Remove any leading/trailing newlines
+            response = response.strip('\n')
+            # remove the string ```json
+            response = response.replace('```json', '')
+            # remove the string ```
+            response = response.replace('```', '')
             parsed_response = json.loads(response)
             print(f"Successfully parsed JSON: {parsed_response}")
             return parsed_response
@@ -289,7 +319,7 @@ async def handle_ai_response(ctx: Context, sender: str, msg: ChatMessage):
             return
 
         # Validate required keys exist
-        required_keys = ["correctness", "capabilities", "domainKnowledge", "speed"]
+        required_keys = ["accuracy", "clarity", "completeness", "relevance", "tone", "overall_rating", "overall_reasoning"]
         missing_keys = [key for key in required_keys if key not in eval_result]
         if missing_keys:
             ctx.logger.error(f"Missing required keys in eval result: {missing_keys}")
@@ -301,12 +331,17 @@ async def handle_ai_response(ctx: Context, sender: str, msg: ChatMessage):
             ctx.logger.error(f"Some eval result values are None/empty: {eval_result}")
             return
 
+        # Map the flat schema to your expected format
         eval_state.add_eval_result(
-            eval_result["correctness"],
-            eval_result["capabilities"],
-            eval_result["domainKnowledge"],
-            eval_result["speed"]
+            eval_result["accuracy"],      # correctness -> accuracy
+            eval_result["clarity"],       # capabilities -> clarity  
+            eval_result["completeness"],  # domainKnowledge -> completeness
+            eval_result["relevance"]      # speed -> relevance
         )
+        
+        ctx.logger.info(f"Evaluation completed - Overall rating: {eval_result['overall_rating']}")
+        ctx.logger.info(f"Reasoning: {eval_result['overall_reasoning']}")
+        ctx.logger.info(f"Scores - Accuracy: {eval_result['accuracy']}, Clarity: {eval_result['clarity']}, Completeness: {eval_result['completeness']}, Relevance: {eval_result['relevance']}, Tone: {eval_result['tone']}")
 
         # eval_state.add_eval_result(
         #     1,0,0,0    
