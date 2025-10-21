@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import ReactMarkdown from "react-markdown";
 import { Input } from "../ui/input";
 import {
   sendMessageToAgent,
@@ -124,7 +125,9 @@ export function ChatInteraction() {
                     : "bg-muted"
                 )}
               >
-                <p className="text-sm whitespace-pre-wrap">{message.content}</p>
+                <div className="text-sm prose prose-sm dark:prose-invert max-w-none [&>*:first-child]:mt-0 [&>*:last-child]:mb-0">
+                  <ReactMarkdown>{message.content}</ReactMarkdown>
+                </div>
               </div>
             </div>
           ))}

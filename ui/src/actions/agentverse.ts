@@ -18,7 +18,6 @@ export interface AgentChatSession {
 // Url defintions
 
 const agentInfoUrl = `https://agentverse.ai/v1/search/agents`;
-const localAgentUrl = `http://localhost:8000/submit`;
 
 /**
  * Fetch agent information from Agentverse API
