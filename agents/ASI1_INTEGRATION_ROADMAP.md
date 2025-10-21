@@ -14,7 +14,7 @@ Enable ASI:1 (Fetch.ai's AI) to discover and use your evaluator agent when users
 
 - ✅ Working evaluator agent with REST API
 - ✅ EAS attestation integration
-- ✅ uAgents framework with chat protocol
+- ✅ uAgents framework with human chat protocol & eval_protocol
 - ✅ Local endpoint: `http://localhost:8000`
 
 ### What's Missing
