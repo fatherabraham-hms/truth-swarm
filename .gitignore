@@ -31,7 +31,7 @@ wheels/
 
 # IDE specific files
 .idea/
-.vscode/
+# .vscode/  # Allow .vscode for project settings
 *.swp
 *.swo
 *~

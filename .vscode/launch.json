@@ -1,0 +1,25 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "Python: Evaluator Agent",
+            "type": "python",
+            "request": "launch",
+            "program": "${workspaceFolder}/src/agents/evaluator-agent/evaluator-agent.py",
+            "console": "integratedTerminal",
+            "python": "${workspaceFolder}/venv/bin/python",
+            "cwd": "${workspaceFolder}/src/agents/evaluator-agent",
+            "env": {}
+        },
+        {
+            "name": "Python: DeFi Agent",
+            "type": "python",
+            "request": "launch",
+            "program": "${workspaceFolder}/src/agents/defi-agent/defi-agent.py",
+            "console": "integratedTerminal",
+            "python": "${workspaceFolder}/venv/bin/python",
+            "cwd": "${workspaceFolder}/src/agents/defi-agent",
+            "env": {}
+        }
+    ]
+}
