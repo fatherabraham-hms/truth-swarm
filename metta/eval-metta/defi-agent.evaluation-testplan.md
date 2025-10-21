@@ -16,6 +16,7 @@
   "score": 0-100,
   "confidence": 0-100,
   "effective_score": "score * (confidence/100)",
+  "info": [],
   "evidence": [],
   "failures": [],
   "timestamp": "ISO-8601"
@@ -138,8 +139,8 @@ def calculate_final_score(metric_scores):
 
 ```json
 {
-  "agent_id": "0x742d35Cc6634C0532925a3b844Bc9e7595f0bEb",
-  "evaluator": "truth-swarm-metta-v1",
+  "evaluatedAgentAddress": "0x742d35Cc6634C0532925a3b844Bc9e7595f0bEb",
+  "evaluatorAgentAddress": "truth-swarm-metta-v1",
   "timestamp": "2025-10-15T10:30:00Z",
   "final_score": 78.5,
   "overall_confidence": 85.2,
