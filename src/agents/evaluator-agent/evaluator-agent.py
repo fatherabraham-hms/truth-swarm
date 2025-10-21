@@ -34,21 +34,75 @@ agent = Agent(
 
 TEST_TARGET_AGENT_ADDRESS = "agent1q282hfw3kpqzs6pqndp7hk68tpgycarqkj5pwuwyfuxsu8sm807p7pkq2er"
 
+EVAL_CATEGORIES = [
+    "correctness",
+    "capabilities",
+    "domainKnowledge",
+    "speed"
+]
+
 agentsByCategory = [
     {"category": "travel", "address": "agent1q282hfw3kpqzs6pqndp7hk68tpgycarqkj5pwuwyfuxsu8sm807p7pkq2er", "wallet": "fetch1lpwf86sdz3wcs2xvx5wjl7c3vzewt8q42d24wx"},
     {"category": "defi", "address": "agent1q2c8sxs5kg902j96ffruh0he2erhjf63eahrypzvj20gjraevxlggy4fq33", "wallet": "fetch1u4tnce3wsldqgp4ws5vesey60aq82k5ln8czn7"},
     {"category": "halloween", "address": "agent1qtzkq9stasjkl54js9ej604pvtcnp9l2m8s3u4mnvjcz3q4qerc5zmahxcq", "wallet": "fetch1zptj47xfa6kh7wyvtt3eem72p8r7547ygmuwa7"},
 ]
 
-questionsByCategory = [
-    {"category": "travel", "question": "What are the top 3 best travel destinations for the next 6 months?"},
-    {"category": "defi", "question": "What are the top 3 best crypto tokens?"},
-    {"category": "halloween", "question": "Give me a creature that is a cross between a bull and a bee"},
+dataSetsByCategory = [
+    {"category": "travel",
+    "evalData": [
+        {
+            "id": "travel-1",
+            "prompt": "What are the top 3 most popular travel destinations in Argentina in 2025?",
+            "expected": "Buenos Aires, Iguaza Falls, Patagonia"
+        }]},
+    {"category": "defi", "evalData":
+    [
+        {
+            "id": "defi-1",
+            "prompt": "What are the top 3 best performing crypto tokens in 2025?",
+            "expected": "Solana, XRP, Bitcoin"
+        },
+    ]},
+    {"category": "halloween", "evalData":
+    [
+        {
+            "id": "halloween-1",
+            "prompt": "Give me a creature that is a cross between a bull and a bee",
+            "expected": "Bull Bee"
+        },
+    ]},
 ]
 
+# STATE MANAGEMENT CLASS
+class EvalState:
+    def __init__(self):
+        self.currentQuestionId = ""
+        self.currentCategory = ""
+        self.evalResults = []
+    
+    def set_current_question(self, question_id, category):
+        self.currentQuestionId = question_id
+        self.currentCategory = category
+    
+    def add_eval_result(self, question_id, response, evaluation):
+        self.evalResults.append({
+            "questionId": question_id,
+            "response": response,
+            "evaluation": evaluation,
+            "timestamp": datetime.utcnow(),
+            "ratings": {
+                "correctness": 0,
+                "capabilities": 0,
+                "domainKnowledge": 0,
+                "speed": 0
+            }
+        })
 
-def retrieveQuestionByAgentAddress(agentAddress):
-    # First find the category for this agent address
+# Global state instance
+eval_state = EvalState()
+
+
+def retrieveCategoryByAgentAddress(agentAddress):
     category = None
     for agent in agentsByCategory:
         if agent["address"] == agentAddress:
@@ -58,30 +112,43 @@ def retrieveQuestionByAgentAddress(agentAddress):
     if category is None:
         return None
     
-    # Then find the question for this category
-    for question_item in questionsByCategory:
-        if question_item["category"] == category:
-            return question_item["question"]
+    return category
+ 
+def retrievePromptsByCategory(category):    
+    for eval_data in dataSetsByCategory:
+        if eval_data["category"] == category:
+            return eval_data["evalData"]
     
     return None
+    
 
 ################# AGENTVERSE HANDLERS #################
 @agent.on_event("startup")
-async def ask_question(ctx: Context):
-    question = retrieveQuestionByAgentAddress(TEST_TARGET_AGENT_ADDRESS)
+async def init_eval(ctx: Context):
+    category = retrieveCategoryByAgentAddress(TEST_TARGET_AGENT_ADDRESS)
+    evalData = retrievePromptsByCategory(category)
+    
+    if not evalData:
+        ctx.logger.error(f"No eval data found for category: {category}")
+        return
+    
     ctx.logger.info(
-        f"Asking target agent to answer {question}"
+        f"Eval started for.. {category} on {TEST_TARGET_AGENT_ADDRESS}"
     )
+    
+    # Set current question in state
+    eval_state.set_current_question(evalData[0]["id"], category)
+    ctx.logger.info(f"Set currentQuestionId to: {eval_state.currentQuestionId}")
+    
     # Send to target agent using ChatMessage format
     await ctx.send(
         destination=TEST_TARGET_AGENT_ADDRESS, 
         message=ChatMessage(
             timestamp=datetime.utcnow(),
             msg_id=uuid4(),
-            content=[TextContent(type="text", text=question)]
+            content=[TextContent(type="text", text=evalData[0]["prompt"])]
         )
     )
-
 class AIRequest(Model):
     question: str
 class AIResponse(Model):
@@ -108,11 +175,21 @@ async def handle_ai_response(ctx: Context, sender: str, msg: ChatMessage):
         global TEST_TARGET_AGENT_ADDRESS
         TEST_TARGET_AGENT_ADDRESS = re.match(r"/agent[0-9A-Za-z]{39}/", text_content).group(0)
         ctx.logger.info(f"Setting TEST_TARGET_AGENT_ADDRESS to {TEST_TARGET_AGENT_ADDRESS}")
+        init_eval(ctx)
         return
     #PERFORM EVALUATION
     else:
         result = "Evaluated as good" if random.random() > 0.5 else "Evaluated as bad"
+        
+        # Store evaluation result in state
+        eval_state.add_eval_result(
+            eval_state.currentQuestionId,
+            text_content,
+            result
+        )
+        
         ctx.logger.info(f"Agent {sender} response evaluated as: {result}")
+        ctx.logger.info(f"Total evaluations completed: {len(eval_state.evalResults)}")
 
 ########## HUMAN TO AGENT HANDLERS ##########
 @agent.on_message(model=AIRequest, replies={AIResponse})
