@@ -108,20 +108,35 @@ class AttestationManager:
             self.enabled = False
     
     def _get_eas_abi(self):
-        """Minimal EAS ABI for attestation"""
+        """
+        Minimal EAS ABI for attestation
+        
+        Matches the TypeScript ABI from abis.ts line 48:
+        tuple(bytes32 schema, tuple(address recipient, uint64 expirationTime, 
+              bool revocable, bytes32 refUID, bytes data, uint256 value) data) request
+        """
         return [
             {
                 "inputs": [
-                    {"name": "request", "type": "tuple", "components": [
-                        {"name": "schema", "type": "bytes32"},
-                        {"name": "data", "type": "bytes"},
-                        {"name": "expirationTime", "type": "uint64"},
-                        {"name": "revocable", "type": "bool"},
-                        {"name": "refUID", "type": "bytes32"},
-                        {"name": "value", "type": "uint256"},
-                        {"name": "deadline", "type": "uint64"},
-                        {"name": "recipient", "type": "address"}
-                    ]}
+                    {
+                        "name": "request", 
+                        "type": "tuple", 
+                        "components": [
+                            {"name": "schema", "type": "bytes32"},
+                            {
+                                "name": "data", 
+                                "type": "tuple",
+                                "components": [
+                                    {"name": "recipient", "type": "address"},
+                                    {"name": "expirationTime", "type": "uint64"},
+                                    {"name": "revocable", "type": "bool"},
+                                    {"name": "refUID", "type": "bytes32"},
+                                    {"name": "data", "type": "bytes"},
+                                    {"name": "value", "type": "uint256"}
+                                ]
+                            }
+                        ]
+                    }
                 ],
                 "name": "attest",
                 "outputs": [{"name": "", "type": "bytes32"}],
@@ -193,18 +208,31 @@ class AttestationManager:
             # Build transaction
             nonce = self.w3.eth.get_transaction_count(self.address)
             
-            attestation_request_tuple = (
-                Web3.to_bytes(hexstr=self.AGENT_EVALUATION_SCHEMA_UID),
-                attestation_data,
-                0,  # No expiration
-                False,  # Non-revocable
-                b'\x00' * 32,  # No ref UID
-                0,  # No value
-                0,  # No deadline
-                Web3.to_checksum_address("0x0000000000000000000000000000000000000000")
+            # Create nested tuple structure matching EAS ABI:
+            # attest(tuple(bytes32 schema, tuple(address recipient, uint64 expirationTime, 
+            #        bool revocable, bytes32 refUID, bytes data, uint256 value) data) request)
+            
+            # Match TypeScript structure from agent-attestation.ts lines 54-64
+            # Inner tuple: (recipient, expirationTime, revocable, refUID, data, value)
+            inner_data_tuple = (
+                Web3.to_checksum_address("0x0000000000000000000000000000000000000000"),  # recipient
+                0,  # expirationTime (no expiration)
+                False,  # revocable
+                b'\x00' * 32,  # refUID (no reference)
+                attestation_data,  # encoded evaluation data
+                0  # value (no ETH sent)
             )
             
-            transaction = self.eas_contract.functions.attest(attestation_request_tuple).build_transaction({
+            # Outer tuple: (schema, data) - this is the SINGLE "request" parameter
+            attestation_request_tuple = (
+                Web3.to_bytes(hexstr=self.AGENT_EVALUATION_SCHEMA_UID),  # schema
+                inner_data_tuple  # nested data tuple
+            )
+            
+            # Pass the tuple directly - web3.py will treat this as a single parameter
+            transaction = self.eas_contract.functions.attest(
+                attestation_request_tuple
+            ).build_transaction({
                 'from': self.address,
                 'gas': 1000000,
                 'gasPrice': self.w3.eth.gas_price,
