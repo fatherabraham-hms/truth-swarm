@@ -106,8 +106,7 @@ class EvalState:
 eval_state = EvalState()
 
 ################# EVALUATOR AGENT #################
-subject_matter = ("Return ONLY valid JSON matching the provided schema. You are an evaluator agent that evaluates the performance of other agents in a game."
-"You evaluate the agent's responses and provide a rating for each category by evaluating the input json expected key.")
+subject_matter = "Return ONLY valid JSON matching the provided schema. You are an evaluator agent that evaluates the performance of other agents in a game. You evaluate the agent's responses and provide a rating for each category by evaluating the input json expected key."
 
 client = OpenAI(
     # By default, we are using the ASI-1 LLM endpoint and model
@@ -122,8 +121,19 @@ def run_evaluator_agent(eval_data, tested_agent_response):
     
     if not eval_data or not tested_agent_response:
         print("No eval data or tested agent response")
+        return response
+    
+    # Check API key
+    api_key = os.getenv("ASI1_API_KEY")
+    if not api_key:
+        print("ERROR: ASI1_API_KEY environment variable is not set!")
+        return response
+    else:
+        print(f"API key found (first 10 chars): {api_key[:10]}...")
     
     print("Running test scoring...")
+    print(f"Eval data: {eval_data}")
+    print(f"Agent response: {tested_agent_response}")
     try:
         r = client.chat.completions.create(
             model="asi1-mini",
@@ -148,13 +158,41 @@ def run_evaluator_agent(eval_data, tested_agent_response):
                 }
             },
             temperature=0.1,
-            stream=false,
+            stream=False,
             max_tokens=2048,
         )
 
         response = str(r.choices[0].message.content)
-    except:
-        print('Error querying model')
+        print(f"Raw API response: {response}")
+        
+        # Try to parse as JSON to validate format
+        try:
+            import json
+            parsed_response = json.loads(response)
+            print(f"Successfully parsed JSON: {parsed_response}")
+            return parsed_response
+        except json.JSONDecodeError as json_err:
+            print(f"JSON parsing error: {json_err}")
+            print(f"Raw response that failed to parse: {response}")
+            return response
+            
+    except Exception as e:
+        print(f'Error querying model: {type(e).__name__}: {str(e)}')
+        
+        # Check for specific common issues
+        if "api_key" in str(e).lower():
+            print("API Key issue detected. Check your ASI1_API_KEY environment variable.")
+        elif "connection" in str(e).lower() or "network" in str(e).lower():
+            print("Network connection issue. Check your internet connection and API endpoint.")
+        elif "unauthorized" in str(e).lower() or "401" in str(e):
+            print("Authentication failed. Verify your API key is correct.")
+        elif "rate limit" in str(e).lower() or "429" in str(e):
+            print("Rate limit exceeded. Wait before making more requests.")
+        
+        import traceback
+        print("Full traceback:")
+        traceback.print_exc()
+        
     return response
 
 
@@ -240,9 +278,27 @@ async def handle_ai_response(ctx: Context, sender: str, msg: ChatMessage):
     else:        
         eval_state.add_reponse(target_agent_response)
         eval_result = run_evaluator_agent(eval_state.currentEvalData, target_agent_response)
+        
+        # Check if eval_result is a dictionary (successful) or string (error)
+        if isinstance(eval_result, str):
+            ctx.logger.error(f"Evaluation failed, got string response: {eval_result}")
+            return
+            
+        if not isinstance(eval_result, dict):
+            ctx.logger.error(f"Unexpected eval result type: {type(eval_result)}, value: {eval_result}")
+            return
 
-        if not eval_result:
-            ctx.logger.error(f"No eval result found for question: {eval_state.currentQuestionId}")
+        # Validate required keys exist
+        required_keys = ["correctness", "capabilities", "domainKnowledge", "speed"]
+        missing_keys = [key for key in required_keys if key not in eval_result]
+        if missing_keys:
+            ctx.logger.error(f"Missing required keys in eval result: {missing_keys}")
+            ctx.logger.error(f"Eval result: {eval_result}")
+            return
+            
+        # Validate values are not None/empty
+        if not all(eval_result.get(key) is not None for key in required_keys):
+            ctx.logger.error(f"Some eval result values are None/empty: {eval_result}")
             return
 
         eval_state.add_eval_result(
