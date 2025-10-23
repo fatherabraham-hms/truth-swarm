@@ -186,11 +186,14 @@ def run_evaluator_agent(eval_data, tested_agent_response):
             data=dataset,  # Pass the dataset object
             evaluators=[run_evaluation_correctness_task],
             experiment_prefix="truth-swarm",
-            max_concurrency=1  # Reduce concurrency to avoid issues
+            max_concurrency=2
         )
-        
-        print(f"LangSmith evaluation completed: {langsmith_response}")
-        return langsmith_response
+        # Access the _results attribute which contains the evaluation data
+        results = langsmith_response._results[0]["evaluation_results"]["results"]
+        if not results:
+            return None
+        print(f"Found {len(results)} evaluation results")
+        return results
         
     except Exception as e:
         print(f"LangSmith evaluation failed: {e}")
@@ -278,18 +281,11 @@ async def handle_ai_response(ctx: Context, sender: str, msg: ChatMessage):
         eval_state.add_reponse(target_agent_response)
         eval_result = run_evaluator_agent(eval_state.currentEvalData, target_agent_response)
         
-        # Check if eval_result is a dictionary (successful) or string (error)
-        if isinstance(eval_result, str):
-            ctx.logger.error(f"Evaluation failed, got string response: {eval_result}")
-            return
-            
-        if not isinstance(eval_result, dict):
-            ctx.logger.error(f"Unexpected eval result type: {type(eval_result)}, value: {eval_result}")
-            return
+        #TODO: send eval result to badging agent
+        print(f"LangSmith evaluation completed!")
 
-        
-        ctx.logger.info(f"Evaluation completed - Overall rating: {eval_result['overall_rating']}")
-        ctx.logger.info(f"Reasoning: {eval_result['overall_reasoning']}")
+        ctx.logger.info(f"Evaluation completed for {sender}")
+        ctx.logger.info(f"Evaluation result: {eval_result}")
         
         ctx.logger.info(f"Total evaluations completed: 1")
 
