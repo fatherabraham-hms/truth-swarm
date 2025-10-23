@@ -51,14 +51,12 @@ dataSetsByCategory = [
     {"category": "travel",
     "evalData": [
         {
-            "id": "travel-1",
             "inputs": {"question": "What are the top 3 most popular travel destinations in Argentina in 2025?"},
             "outputs": {"answer": "Buenos Aires, Iguaza Falls, Patagonia"}
         }]},
     {"category": "defi", "evalData":
     [
         {
-            "id": "defi-1",
             "inputs": {"question": "What are the top 3 best performing crypto tokens in 2025?"},
             "outputs": {"answer": "Solana, XRP, Bitcoin"}
         },
@@ -66,7 +64,6 @@ dataSetsByCategory = [
     {"category": "halloween", "evalData":
     [
         {
-            "id": "halloween-1",
             "inputs": {"question": "Give me a creature that is a cross between a bull and a bee"},
             "outputs": {"answer": "Bull Bee"}
         },
@@ -134,15 +131,25 @@ def run_evaluator_agent(eval_data, tested_agent_response):
         print("No eval data or tested agent response")
         return response
 
-    dataset = langsmith_client.create_dataset(
-        name="evaluator_dataset",
-        description="Dataset for evaluator agent"       
-    )
-
-    langsmith_client.create_examples(
-        dataset_id=dataset.id,
-        examples=eval_data
-    )
+    # Reuse existing dataset or create it once
+    try:
+        # Try to get existing dataset first
+        dataset = langsmith_client.read_dataset(dataset_name="evaluator_dataset")
+        print("Reusing existing dataset: evaluator_dataset")
+    except:
+        # Create dataset only if it doesn't exist
+        print("Creating new dataset: evaluator_dataset")
+        
+        dataset = langsmith_client.create_dataset(
+            dataset_name="evaluator_dataset_1",
+            description="Dataset for evaluator agent"       
+        )
+        
+        # Add examples only when creating new dataset
+        langsmith_client.create_examples(
+            dataset_id=dataset.id,
+            examples=eval_data
+        )
     
     # https://smith.langchain.com/onboarding?organizationId=44cc621b-830d-4ea0-b5d5-be6b304c547e&step=4
 
@@ -150,15 +157,30 @@ def run_evaluator_agent(eval_data, tested_agent_response):
     print(f"Eval data: {eval_data}")
     print(f"Agent response: {tested_agent_response}")
     
-    langsmith_response = langsmith_client.evaluate(
-        target,
-        data="Sample dataset",
-        evaluators=[run_evaluation_correctness_task],
-        experiment_prefix="truth-swarm",
-        max_concurency=2
-        )
+    # Create a proper target function for this specific response
+    def evaluation_target(inputs):
+        # Return the actual agent response we want to evaluate
+        return {"answer": tested_agent_response}
     
-    return langsmith_response
+    # Run LangSmith evaluation
+    try:
+        langsmith_response = langsmith_client.evaluate(
+            evaluation_target,
+            data=dataset,
+            evaluators=[run_evaluation_correctness_task],
+            experiment_prefix="truth-swarm",
+            max_concurrency=1  # Reduce concurrency to avoid issues
+        )
+        
+        print(f"LangSmith evaluation completed: {langsmith_response}")
+        return langsmith_response
+        
+    except Exception as e:
+        print(f"LangSmith evaluation failed: {e}")
+        print(f"Error type: {type(e).__name__}")
+        import traceback
+        traceback.print_exc()
+        raise e  # Re-raise to see the full error
 
 ################# UTILITY FUNCTIONS #################
 
@@ -198,8 +220,8 @@ async def init_eval(ctx: Context):
     )
     
     # Set current question in state
-    eval_state.set_current_question(evalData[0]["id"], category)
-    ctx.logger.info(f"Set currentQuestionId to: {eval_state.currentQuestionId}")
+    # eval_state.set_current_question(evalData[0]["id"], category)
+    # ctx.logger.info(f"Set currentQuestionId to: {eval_state.currentQuestionId}")
     
     # Send to target agent using ChatMessage format
     await ctx.send(
@@ -252,34 +274,9 @@ async def handle_ai_response(ctx: Context, sender: str, msg: ChatMessage):
             ctx.logger.error(f"Unexpected eval result type: {type(eval_result)}, value: {eval_result}")
             return
 
-        # Validate required keys exist
-        required_keys = ["accuracy", "clarity", "completeness", "relevance", "tone", "overall_rating", "overall_reasoning"]
-        missing_keys = [key for key in required_keys if key not in eval_result]
-        if missing_keys:
-            ctx.logger.error(f"Missing required keys in eval result: {missing_keys}")
-            ctx.logger.error(f"Eval result: {eval_result}")
-            return
-            
-        # Validate values are not None/empty
-        if not all(eval_result.get(key) is not None for key in required_keys):
-            ctx.logger.error(f"Some eval result values are None/empty: {eval_result}")
-            return
-
-        # Map the flat schema to your expected format
-        eval_state.add_eval_result(
-            eval_result["accuracy"],      # correctness -> accuracy
-            eval_result["clarity"],       # capabilities -> clarity  
-            eval_result["completeness"],  # domainKnowledge -> completeness
-            eval_result["relevance"]      # speed -> relevance
-        )
         
         ctx.logger.info(f"Evaluation completed - Overall rating: {eval_result['overall_rating']}")
         ctx.logger.info(f"Reasoning: {eval_result['overall_reasoning']}")
-        ctx.logger.info(f"Scores - Accuracy: {eval_result['accuracy']}, Clarity: {eval_result['clarity']}, Completeness: {eval_result['completeness']}, Relevance: {eval_result['relevance']}, Tone: {eval_result['tone']}")
-
-        # eval_state.add_eval_result(
-        #     1,0,0,0    
-        # )
         
         ctx.logger.info(f"Total evaluations completed: 1")
 
