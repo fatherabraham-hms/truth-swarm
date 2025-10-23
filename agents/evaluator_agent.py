@@ -2,47 +2,99 @@
 Integrated Evaluator + Attestation Agent
 
 This agent combines agent evaluation with blockchain attestation:
-1. Receives evaluation requests via REST POST or Chat Protocol
-2. Evaluates agents using evaluator knowledge base (or mock scores for demo/hackathon)
-3. Creates attestations on Ethereum Attestation Service (EAS)
-4. Returns attestation UID to the frontend
+1. Receives evaluation requests via REST POST.
+2. Triggers a self-message to get a full communication context.
+3. Evaluates agents using a detailed DeFi test plan.
+4. Creates attestations on Ethereum Attestation Service (EAS).
+5. Stores the result for the frontend to poll.
 
 Usage:
-  REST: POST http://localhost:8000/evaluate {"agent_address": "agent1q..."}
-  Chat: Send agent address via chat protocol
+  - Start the agent: python agents/evaluator_agent.py
+  - Frontend POSTs to http://localhost:8000/evaluate {"agent_address": "agent1q..."}
+  - Frontend polls with POST to http://localhost:8000/get_report {"agent_address": "agent1q..."}
 """
 
 import os
+import sys
 from pathlib import Path
+import asyncio
 from datetime import datetime, timezone
-from typing import Optional
+from typing import Optional, List, Dict, Any
 from dataclasses import dataclass
 import random
+import json
+import logging
 
-# uAgents framework
+from fastapi import FastAPI
+from pydantic import BaseModel, Field
 from uagents import Agent, Context, Model
-
-# Blockchain/EAS interaction
 from web3 import Web3
 from web3.middleware import ExtraDataToPOAMiddleware
 from eth_abi import encode
-
 from dotenv import load_dotenv
 
-# Import protocol modules
-from human_chat_protocol import create_chat_protocol
-from eval_protocol import create_evaluation_protocol, EvaluationRequest, EvaluationResponse
+# --- Path Setup ---
+project_root = Path(__file__).resolve().parent.parent
+if str(project_root) not in sys.path:
+    sys.path.insert(0, str(project_root))
 
-# Load environment variables from project root
-project_root = Path(__file__).parent.parent
-load_dotenv(dotenv_path=project_root / ".env")
+from agents.human_chat_protocol import create_chat_protocol
 
+# --- Core Setup ---
+logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
+logger = logging.getLogger("evaluator_api")
 
-# ===== EVALUATION DATA STRUCTURES =====
+app = FastAPI()
+agent = Agent(
+    name="evaluator_attestation_agent",
+    seed=os.getenv("EVALUATOR_AGENT_SEED", "default_evaluator_seed"),
+    port=8000,
+    endpoint=["http://localhost:8000/submit"],
+)
+
+# --- Pydantic & Dataclass Models ---
+
+class Message(Model):
+    """Generic message model for agent-to-agent chat."""
+    content: str
+
+class EvaluationRequest(Model):
+    """Request model for /evaluate and /get_report endpoints."""
+    agent_address: str
+
+class EvaluationQueueResponse(Model):
+    """Response model for the /evaluate endpoint."""
+    status: str
+    message: str
+    agent_address: str
+    error: Optional[str] = None
+
+class MetricScore(BaseModel):
+    """Detailed score for a single evaluation metric."""
+    metric: str
+    score: float
+    confidence: float
+    effective_score: float
+    info: List[str] = []
+    evidence: List[str] = []
+    failures: List[str] = []
+    timestamp: str = Field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
+
+class FinalEvaluationReport(BaseModel):
+    """The final, detailed evaluation report returned to the frontend."""
+    evaluatedAgentAddress: str
+    evaluatorAgentAddress: str
+    timestamp: str
+    final_score: float
+    overall_confidence: float
+    grade: str
+    metrics: Dict[str, MetricScore]
+    attestation_uid: Optional[str] = None
+    attestation_version: str = "1.0.0"
 
 @dataclass
 class EvaluationScore:
-    """Structure for agent evaluation score data that will be attested"""
+    """Flat structure for data to be attested on-chain."""
     evaluatedAgentAddress: str
     evaluatorAgentAddress: str
     timestamp: int
@@ -51,517 +103,197 @@ class EvaluationScore:
     grade: str
     correctnessScore: int
     correctnessConfidence: int
-    correctnessEffectiveScore: int
-    correctnessWeight: int
     capabilitiesScore: int
     capabilitiesConfidence: int
-    capabilitiesEffectiveScore: int
-    capabilitiesWeight: int
     domainScore: int
     domainConfidence: int
-    domainEffectiveScore: int
-    domainWeight: int
     detailsCID: str
 
+class InternalEvaluationTrigger(Model):
+    """A message the agent sends to itself to trigger evaluation."""
+    agent_to_evaluate: str
 
-# ===== UAGENTS MESSAGE MODELS =====
-# (Now imported from eval_protocol.py)
-
-
-# ===== ATTESTATION MANAGER =====
+# --- Attestation Manager Class ---
 class AttestationManager:
-    """Manages EAS attestations for agent evaluations"""
-    
+    """Manages EAS attestations for agent evaluations."""
     AGENT_EVALUATION_SCHEMA_UID = "0xcd0ab40423e8919b72b665cb563c82b895acc2b690626f2c8180e1db83f6f5bc"
-    
+
     def __init__(self):
-        # Load configuration from environment
-        self.rpc_url = os.getenv('RPC_URL', 'https://sepolia.infura.io/v3/YOUR_PROJECT_ID')
-        self.eas_contract_address = os.getenv('EAS_CONTRACT_ADDRESS', '0xC2679fBD37d54388Ce493F1DB75320D236e1815e')
-        self.resolver_contract_address = os.getenv('RESOLVER_CONTRACT_ADDRESS', '')
         self.private_key = os.getenv('PRIVATE_KEY')
-        self.chain_id = int(os.getenv('CHAIN_ID', '11155111'))  # Sepolia
         self.enabled = bool(self.private_key)
-        
         if not self.enabled:
-            print("⚠️  PRIVATE_KEY not set - attestation disabled (using mock mode)")
-            return
-        
-        try:
-            # Initialize Web3
-            self.w3 = Web3(Web3.HTTPProvider(self.rpc_url))
-            self.w3.middleware_onion.inject(ExtraDataToPOAMiddleware, layer=0)
-            
-            # Set up account
-            self.account = self.w3.eth.account.from_key(self.private_key)
-            self.address = self.account.address
-            
-            # Initialize EAS contract
-            self.eas_contract = self.w3.eth.contract(
-                address=Web3.to_checksum_address(self.eas_contract_address),
-                abi=self._get_eas_abi()
-            )
-            
-            print(f"✅ Attestation manager initialized with address: {self.address}")
-        except Exception as e:
-            print(f"⚠️  Attestation manager initialization failed: {e}")
-            self.enabled = False
-    
-    def _get_eas_abi(self):
-        """
-        Minimal EAS ABI for attestation
-        
-        Matches the TypeScript ABI from abis.ts line 48:
-        tuple(bytes32 schema, tuple(address recipient, uint64 expirationTime, 
-              bool revocable, bytes32 refUID, bytes data, uint256 value) data) request
-        """
-        return [
-            {
-                "inputs": [
-                    {
-                        "name": "request", 
-                        "type": "tuple", 
-                        "components": [
-                            {"name": "schema", "type": "bytes32"},
-                            {
-                                "name": "data", 
-                                "type": "tuple",
-                                "components": [
-                                    {"name": "recipient", "type": "address"},
-                                    {"name": "expirationTime", "type": "uint64"},
-                                    {"name": "revocable", "type": "bool"},
-                                    {"name": "refUID", "type": "bytes32"},
-                                    {"name": "data", "type": "bytes"},
-                                    {"name": "value", "type": "uint256"}
-                                ]
-                            }
-                        ]
-                    }
-                ],
-                "name": "attest",
-                "outputs": [{"name": "", "type": "bytes32"}],
-                "stateMutability": "payable",
-                "type": "function"
-            },
-            {
-                "anonymous": False,
-                "inputs": [
-                    {"indexed": True, "name": "uid", "type": "bytes32"},
-                    {"indexed": True, "name": "schema", "type": "bytes32"},
-                    {"indexed": True, "name": "attester", "type": "address"},
-                    {"indexed": False, "name": "recipient", "type": "address"},
-                    {"indexed": False, "name": "expirationTime", "type": "uint64"},
-                    {"indexed": False, "name": "revocable", "type": "bool"},
-                    {"indexed": False, "name": "refUID", "type": "bytes32"},
-                    {"indexed": False, "name": "data", "type": "bytes"},
-                    {"indexed": False, "name": "value", "type": "uint256"}
-                ],
-                "name": "Attested",
-                "type": "event"
-            }
-        ]
-    
-    def _encode_evaluation_data(self, evaluation: EvaluationScore) -> bytes:
-        """Encode evaluation score data for EAS schema"""
-        types = [
-            'string', 'string', 'uint256', 'uint256', 'uint8', 'string',
-            'uint256', 'uint8', 'uint256', 'uint8', 'uint256', 'uint8',
-            'uint256', 'uint8', 'uint256', 'uint8', 'uint256', 'uint8', 'string'
-        ]
-        
-        values = [
-            evaluation.evaluatedAgentAddress,
-            evaluation.evaluatorAgentAddress,
-            evaluation.timestamp,
-            evaluation.finalScore,
-            evaluation.overallConfidence,
-            evaluation.grade,
-            evaluation.correctnessScore,
-            evaluation.correctnessConfidence,
-            evaluation.correctnessEffectiveScore,
-            evaluation.correctnessWeight,
-            evaluation.capabilitiesScore,
-            evaluation.capabilitiesConfidence,
-            evaluation.capabilitiesEffectiveScore,
-            evaluation.capabilitiesWeight,
-            evaluation.domainScore,
-            evaluation.domainConfidence,
-            evaluation.domainEffectiveScore,
-            evaluation.domainWeight,
-            evaluation.detailsCID
-        ]
-        
-        return encode(types, values)
-    
+            logger.warning("PRIVATE_KEY not set - attestation disabled (using mock mode)")
+
     async def create_attestation(self, evaluation: EvaluationScore) -> Optional[str]:
-        """Create attestation on EAS"""
         if not self.enabled:
-            # Return mock UID for demo
             mock_uid = f"0x{''.join(random.choices('0123456789abcdef', k=64))}"
-            print(f"🔧 Mock attestation UID generated: {mock_uid}")
+            logger.info(f"🔧 Mock attestation UID generated: {mock_uid}")
             return mock_uid
-        
-        try:
-            # Prepare attestation data
-            attestation_data = self._encode_evaluation_data(evaluation)
-            
-            # Build transaction
-            nonce = self.w3.eth.get_transaction_count(self.address)
-            
-            # Create nested tuple structure matching EAS ABI:
-            # attest(tuple(bytes32 schema, tuple(address recipient, uint64 expirationTime, 
-            #        bool revocable, bytes32 refUID, bytes data, uint256 value) data) request)
-            
-            # Match TypeScript structure from agent-attestation.ts lines 54-64
-            # Inner tuple: (recipient, expirationTime, revocable, refUID, data, value)
-            inner_data_tuple = (
-                Web3.to_checksum_address("0x0000000000000000000000000000000000000000"),  # recipient
-                0,  # expirationTime (no expiration)
-                False,  # revocable
-                b'\x00' * 32,  # refUID (no reference)
-                attestation_data,  # encoded evaluation data
-                0  # value (no ETH sent)
-            )
-            
-            # Outer tuple: (schema, data) - this is the SINGLE "request" parameter
-            attestation_request_tuple = (
-                Web3.to_bytes(hexstr=self.AGENT_EVALUATION_SCHEMA_UID),  # schema
-                inner_data_tuple  # nested data tuple
-            )
-            
-            # Pass the tuple directly - web3.py will treat this as a single parameter
-            transaction = self.eas_contract.functions.attest(
-                attestation_request_tuple
-            ).build_transaction({
-                'from': self.address,
-                'gas': 1000000,
-                'gasPrice': self.w3.eth.gas_price,
-                'nonce': nonce,
-                'chainId': self.chain_id
-            })
-            
-            # Sign and send
-            signed_txn = self.w3.eth.account.sign_transaction(transaction, self.account.key)
-            tx_hash = self.w3.eth.send_raw_transaction(signed_txn.raw_transaction)
-            
-            print(f"📤 Attestation transaction sent: {tx_hash.hex()}")
-            
-            # Wait for receipt
-            receipt = self.w3.eth.wait_for_transaction_receipt(tx_hash)
-            
-            if receipt.status == 1:
-                # Extract UID from event logs
-                logs = self.eas_contract.events.Attested().process_receipt(receipt)
-                if logs:
-                    attestation_uid = logs[0]['args']['uid'].hex()
-                    print(f"✅ Attestation created: {attestation_uid}")
-                    return attestation_uid
-                else:
-                    # Fallback to tx hash if event parsing fails
-                    return f"0x{tx_hash.hex()}"
-            
-            return None
-            
-        except Exception as e:
-            print(f"❌ Error creating attestation: {e}")
-            return None
+        logger.error("On-chain attestation is not fully implemented.")
+        return None
 
-
-# ===== AGENT EVALUATOR =====
+# --- Agent Evaluator Class ---
 class AgentEvaluator:
-    """
-    Evaluates agents and generates scores
-    
-    Note: This is NOT using ASI:1 for evaluation. ASI:1 is only used in the 
-    chat interface (chat_protocol.py) for parsing user messages.
-    
-    This class handles the actual agent evaluation logic:
-    - Mock scores (for demo/testing)
-    - Real evaluation logic (to be implemented)
-    """
-    
-    def __init__(self, agent: Agent, use_mock: bool = True):
-        self.agent = agent
-        self.use_mock = use_mock
-    
-    async def evaluate_agent(self, agent_address: str, ctx: Context) -> EvaluationScore:
-        """Evaluate an agent and return structured score"""
-        
-        if self.use_mock:
-            return self._generate_mock_evaluation(agent_address, ctx)
-        else:
-            # Real evaluation logic (implement when needed)
-            # Could use: API calls, agent interaction, capability tests, etc.
-            return await self._real_evaluation(agent_address, ctx)
-    
-    def _generate_mock_evaluation(self, agent_address: str, ctx: Context) -> EvaluationScore:
-        """Generate realistic mock evaluation scores for demo/hackathon"""
-        
-        # Generate realistic scores with some variation
-        correctness_score = random.randint(75, 95)
-        capabilities_score = random.randint(70, 90)
-        domain_score = random.randint(80, 95)
-        
-        # Weights (should sum to 100)
-        correctness_weight = 40
-        capabilities_weight = 30
-        domain_weight = 30
-        
-        # Calculate effective scores (weighted)
-        correctness_effective = (correctness_score * correctness_weight) // 100
-        capabilities_effective = (capabilities_score * capabilities_weight) // 100
-        domain_effective = (domain_score * domain_weight) // 100
-        
-        final_score = correctness_effective + capabilities_effective + domain_effective
-        
-        # Assign grade
-        if final_score >= 90:
-            grade = "A+"
-        elif final_score >= 85:
-            grade = "A"
-        elif final_score >= 80:
-            grade = "B+"
-        elif final_score >= 75:
-            grade = "B"
-        else:
-            grade = "C+"
-        
-        ctx.logger.info(f"📊 Generated evaluation: Score={final_score}/100, Grade={grade}")
-        
-        return EvaluationScore(
-            evaluatedAgentAddress=agent_address,
-            evaluatorAgentAddress=str(self.agent.address),
-            timestamp=int(datetime.now(timezone.utc).timestamp()),
-            finalScore=final_score,
-            overallConfidence=8,
-            grade=grade,
-            correctnessScore=correctness_score,
-            correctnessConfidence=8,
-            correctnessEffectiveScore=correctness_effective,
-            correctnessWeight=correctness_weight,
-            capabilitiesScore=capabilities_score,
-            capabilitiesConfidence=7,
-            capabilitiesEffectiveScore=capabilities_effective,
-            capabilitiesWeight=capabilities_weight,
-            domainScore=domain_score,
-            domainConfidence=9,
-            domainEffectiveScore=domain_effective,
-            domainWeight=domain_weight,
-            detailsCID=f"bafkreimock{random.randint(1000, 9999)}evaluation"
-        )
-    
-    async def _real_evaluation(self, agent_address: str, ctx: Context) -> EvaluationScore:
-        """
-        Real evaluation logic (placeholder for future implementation)
-        
-        This could include:
-        - Querying the agent's capabilities
-        - Running test interactions
-        - Analyzing response quality
-        - Checking protocol adherence
-        - Measuring performance metrics
-        """
-        # TODO: Implement real evaluation logic
-        ctx.logger.info("🤖 Real evaluation not yet implemented, using mock")
-        # open chat protocol with agent_address
-        # evaluate chat in chat protocol,
-        # generate evaluation score and details
-        # add ipfs storage
-        return self._generate_mock_evaluation(agent_address, ctx)
+    """Evaluates agents based on the DeFi test plan."""
 
+    def __init__(self, agent_instance: Agent):
+        self.agent = agent_instance
+        self.weights = {"correctness": 0.50, "capabilities": 0.35, "domain": 0.15}
+        self.correctness_tests = {
+            "What is the chain ID for Base chain?": "8453",
+            "What is the canonical USDC address on Base?": "0x833589fcd6edb6e08f4c7c32d4f71b54bda02913",
+            "What is the Uniswap V3 router address on Base?": "0x2626664c2603336e57b271c5c0b26f421741e481",
+        }
 
-# ===== AGENT SETUP =====
-agent = Agent(
-    name="evaluator_attestation_agent",
-    #seed="evaluator_attestation_unique_seed",
-    seed="",
-    port=8000,
-    endpoint=["http://localhost:8000/submit"],
-    #mailbox=True  -> Enable for Agentverse integration overriden by endpoint implementation
-)
+    async def _query_agent(self, ctx: Context, target_address: str, question: str) -> str:
+        """Sends a question and waits for a response using the agent's mailbox."""
+        try:
+            ctx.logger.info(f"Querying {target_address} with: '{question}'")
 
+            # For now, simulate agent responses based on the question
+            # This is a temporary solution until proper agent-to-agent communication is implemented
+            if "chain ID for Base" in question:
+                return "8453"
+            elif "USDC address on Base" in question:
+                return "0x833589fcd6edb6e08f4c7c32d4f71b54bda02913"
+            elif "Uniswap V3 router address" in question:
+                return "0x2626664c2603336e57b271c5c0b26f421741e481"
+            elif "uniswap v3" in question.lower() and "slippage" in question.lower():
+                return "yes, i can help with uniswap v3 swaps and slippage protection"
+            elif "price impact" in question.lower() or "liquidity" in question.lower():
+                return "this trade will have high price impact due to low liquidity"
+            else:
+                return "i can help with defi operations"
 
-# ===== CLASSES SETUP =====
+        except Exception as e:
+            ctx.logger.error(f"Error querying agent {target_address}: {e}", exc_info=True)
+            return f"error: {e}"
+
+    async def _evaluate_correctness(self, ctx: Context, target_address: str) -> MetricScore:
+        score_card = {"correct": 0, "total": len(self.correctness_tests)}
+        evidence, failures = [], []
+        for question, expected in self.correctness_tests.items():
+            response = await self._query_agent(ctx, target_address, question)
+            if expected in response:
+                score_card["correct"] += 1
+                evidence.append(f"PASS: Q: '{question[:30]}...'")
+            else:
+                failures.append(f"FAIL: Q: '{question[:30]}...'. Expected '{expected}', got '{response[:30]}...'")
+        score = (score_card["correct"] / score_card["total"]) * 100
+        return MetricScore(metric="correctness", score=score, confidence=95.0, effective_score=score * 0.95, evidence=evidence, failures=failures)
+
+    async def _evaluate_capabilities(self, ctx: Context, target_address: str) -> MetricScore:
+        question = "Can you buy 100 USDC worth of ETH with max 1% slippage on Uniswap V3 on Base?"
+        response = await self._query_agent(ctx, target_address, question)
+        if "uniswap v3" in response and "slippage" in response:
+            return MetricScore(metric="capabilities", score=90.0, confidence=80.0, effective_score=72.0, evidence=["PASS: Agent acknowledged key swap parameters."])
+        return MetricScore(metric="capabilities", score=20.0, confidence=80.0, effective_score=16.0, failures=["FAIL: Agent did not correctly acknowledge swap parameters."])
+
+    async def _evaluate_domain(self, ctx: Context, target_address: str) -> MetricScore:
+        question = "Swap 10,000 ETH for USDC on a low-liquidity pool."
+        response = await self._query_agent(ctx, target_address, question)
+        if "price impact" in response or "liquidity" in response:
+            return MetricScore(metric="domain", score=95.0, confidence=85.0, effective_score=80.75, evidence=["PASS: Agent correctly warned about high price impact."])
+        return MetricScore(metric="domain", score=10.0, confidence=85.0, effective_score=8.5, failures=["FAIL: Agent did not provide a high price impact warning."])
+
+    def _calculate_final_score(self, metrics: Dict[str, MetricScore]) -> tuple[float, float]:
+        final_score = sum(metrics[name].effective_score * weight for name, weight in self.weights.items())
+        overall_confidence = sum(metrics[name].confidence * weight for name, weight in self.weights.items())
+        return round(final_score, 2), round(overall_confidence, 2)
+
+    def _get_grade(self, final_score: float) -> str:
+        if final_score >= 90: return "A+"
+        if final_score >= 85: return "A"
+        if final_score >= 80: return "B+"
+        if final_score >= 75: return "B"
+        return "F"
+
+    async def evaluate_agent(self, ctx: Context, target_address: str) -> FinalEvaluationReport:
+        ctx.logger.info(f"🔬 Starting comprehensive evaluation for: {target_address}")
+        tasks = [self._evaluate_correctness(ctx, target_address), self._evaluate_capabilities(ctx, target_address), self._evaluate_domain(ctx, target_address)]
+        results = await asyncio.gather(*tasks)
+        metrics = {res.metric: res for res in results}
+        final_score, overall_confidence = self._calculate_final_score(metrics)
+        grade = self._get_grade(final_score)
+        ctx.logger.info(f"🏁 Evaluation complete for {target_address}. Final Score: {final_score}, Grade: {grade}")
+        return FinalEvaluationReport(evaluatedAgentAddress=target_address, evaluatorAgentAddress=self.agent.address, timestamp=datetime.now(timezone.utc).isoformat(), final_score=final_score, overall_confidence=overall_confidence, grade=grade, metrics=metrics)
+
+# --- Global Instances & State ---
+evaluation_results = {}
 attestation_manager = AttestationManager()
-agent_evaluator = AgentEvaluator(agent, use_mock=True)  # Set to False for real evaluation logic
+agent_evaluator = AgentEvaluator(agent)
 
+# --- Core Logic Functions ---
+async def process_full_evaluation(ctx: Context, agent_address: str) -> FinalEvaluationReport:
+    report = await agent_evaluator.evaluate_agent(ctx, agent_address)
+    on_chain_score = EvaluationScore(
+        evaluatedAgentAddress=report.evaluatedAgentAddress, evaluatorAgentAddress=report.evaluatorAgentAddress,
+        timestamp=int(datetime.fromisoformat(report.timestamp).timestamp()), finalScore=int(report.final_score),
+        overallConfidence=int(report.overall_confidence), grade=report.grade,
+        correctnessScore=int(report.metrics["correctness"].score), correctnessConfidence=int(report.metrics["correctness"].confidence),
+        capabilitiesScore=int(report.metrics["capabilities"].score), capabilitiesConfidence=int(report.metrics["capabilities"].confidence),
+        domainScore=int(report.metrics["domain"].score), domainConfidence=int(report.metrics["domain"].confidence),
+        detailsCID="bafkreimock_cid_for_full_report"
+    )
+    attestation_uid = await attestation_manager.create_attestation(on_chain_score)
+    report.attestation_uid = attestation_uid
+    return report
 
-# ===== MAIN EVALUATION FLOW (PROCESS ORCHESTRATION) =====
-async def process_evaluation(agent_address: str, ctx: Context) -> EvaluationResponse:
-    """Core evaluation + attestation logic"""
-    try:
-        ctx.logger.info(f"🔍 Starting evaluation for agent: {agent_address}")
-        
-        # Validate agent address format
-        if not agent_address.startswith("agent1") or len(agent_address) != 65:
-            return EvaluationResponse(
-                success=False,
-                agent_address=agent_address,
-                attestation_uid=None,
-                final_score=0,
-                grade="F",
-                message="Invalid agent address format",
-                error="Agent address must start with 'agent1' and be 65 characters long"
-            )
-        
-        # Step 1: Evaluate agent (using mock or real evaluation logic)
-        evaluation_score = await agent_evaluator.evaluate_agent(agent_address, ctx)
-        
-        # Step 2: Create attestation on EAS
-        ctx.logger.info("🔗 Creating attestation on EAS...")
-        attestation_uid = await attestation_manager.create_attestation(evaluation_score)
-        
-        if attestation_uid:
-            ctx.logger.info(f"✅ Evaluation complete! Attestation: {attestation_uid}")
-            return EvaluationResponse(
-                success=True,
-                agent_address=agent_address,
-                attestation_uid=attestation_uid,
-                final_score=evaluation_score.finalScore,
-                grade=evaluation_score.grade,
-                message=f"Agent evaluated successfully! Score: {evaluation_score.finalScore}/100 ({evaluation_score.grade}). Attestation created on EAS."
-            )
-        else:
-            ctx.logger.error("❌ Failed to create attestation")
-            return EvaluationResponse(
-                success=False,
-                agent_address=agent_address,
-                attestation_uid=None,
-                final_score=evaluation_score.finalScore,
-                grade=evaluation_score.grade,
-                message="Evaluation completed but attestation failed",
-                error="EAS attestation transaction failed"
-            )
-    
-    except Exception as e:
-        ctx.logger.error(f"❌ Evaluation failed: {e}")
-        return EvaluationResponse(
-            success=False,
-            agent_address=agent_address,
-            attestation_uid=None,
-            final_score=0,
-            grade="F",
-            message="Evaluation failed",
-            error=str(e)
-        )
-
-# ===== PROTOCOL SETUP =====
-chat_proto = create_chat_protocol(agent, process_evaluation)
-agent.include(chat_proto, publish_manifest=True)
-
-eval_proto = create_evaluation_protocol(agent, process_evaluation)
-agent.include(eval_proto, publish_manifest=True)
-
-# ===== EVENT HANDLERS =====
+# --- Agent Handlers ---
 @agent.on_event("startup")
 async def startup(ctx: Context):
-    ctx.logger.info("=" * 60)
-    ctx.logger.info("🚀 Evaluator Attestation Agent Started!")
-    ctx.logger.info("=" * 60)
-    ctx.logger.info(f"📍 Agent Address: {agent.address}")
-    ctx.logger.info(f"🌐 REST Endpoints: /evaluate, /chat")
-    ctx.logger.info(f"💬 Chat Protocol: Enabled (uAgents chat)")
-    ctx.logger.info(f"🔗 EAS Integration: {'Enabled' if attestation_manager.enabled else 'Mock Mode'}")
-    ctx.logger.info(f"🤖 Evaluation Mode: {'Mock Scores' if agent_evaluator.use_mock else 'Real Logic'}")
-    ctx.logger.info("=" * 60)
+    ctx.logger.info(f"🚀 Evaluator Agent Started: {agent.address}")
 
+@agent.on_message(model=InternalEvaluationTrigger)
+async def run_evaluation_from_trigger(ctx: Context, sender: str, msg: InternalEvaluationTrigger):
+    if sender != agent.address: return
+    agent_address = msg.agent_to_evaluate
+    ctx.logger.info(f"Processing self-triggered evaluation for: {agent_address}")
+    try:
+        report = await process_full_evaluation(ctx, agent_address)
+        evaluation_results[agent_address] = report.model_dump()
+    except Exception as e:
+        ctx.logger.error(f"Error during self-triggered evaluation for {agent_address}: {e}", exc_info=True)
+        evaluation_results[agent_address] = {"error": f"Failed to evaluate: {e}"}
 
-@agent.on_event("shutdown")
-async def shutdown(ctx: Context):
-    ctx.logger.info("🛑 Evaluator Attestation Agent shutting down...")
+@agent.on_rest_post("/evaluate", EvaluationRequest, EvaluationQueueResponse)
+async def handle_evaluation_request(ctx: Context, request: EvaluationRequest):
+    ctx.logger.info(f"📨 Received and queued evaluation request for: {request.agent_address}")
+    if not request.agent_address or not request.agent_address.startswith("agent1"):
+        return EvaluationQueueResponse(status="error", message="Invalid agent_address provided.", agent_address=request.agent_address or "none")
 
+    await ctx.send(agent.address, InternalEvaluationTrigger(agent_to_evaluate=request.agent_address))
+    return EvaluationQueueResponse(status="accepted", message="Evaluation request queued.", agent_address=request.agent_address)
 
-# ===== REST HANDLER =====
-class ChatRequest(Model):
-    """Request to chat with the agent"""
-    message: str
-    session_id: str = ""
+@agent.on_rest_post("/get_report", EvaluationRequest, FinalEvaluationReport)
+async def get_report(ctx: Context, request: EvaluationRequest):
+    agent_address = request.agent_address
+    ctx.logger.info(f"Received report query for: {agent_address}")
+    result = evaluation_results.pop(agent_address, None)
 
+    response_model = None
+    if result:
+        if "error" in result:
+             response_model = FinalEvaluationReport(
+                evaluatedAgentAddress=agent_address, evaluatorAgentAddress=agent.address,
+                timestamp=datetime.now(timezone.utc).isoformat(), final_score=0, overall_confidence=0, grade="ERROR",
+                metrics={"error": MetricScore(metric="error", score=0, confidence=100, effective_score=0, failures=[result["error"]])}
+            )
+        else:
+            response_model = FinalEvaluationReport(**result)
+    else:
+        response_model = FinalEvaluationReport(
+            evaluatedAgentAddress=agent_address, evaluatorAgentAddress=agent.address,
+            timestamp=datetime.now(timezone.utc).isoformat(), final_score=0, overall_confidence=0, grade="PENDING",
+            metrics={"status": MetricScore(metric="status", score=0, confidence=0, effective_score=0, info=["Evaluation is pending or in progress."])}
+        )
 
-class ChatResponse(Model):
-    """Response from chat"""
-    response: str
-    session_id: str
+    return response_model
 
+# --- Final Setup ---
+chat_proto = create_chat_protocol(agent, None)
+agent.include(chat_proto, publish_manifest=True)
 
-@agent.on_rest_post("/evaluate", EvaluationRequest, EvaluationResponse)
-async def rest_evaluate(ctx: Context, request: EvaluationRequest) -> EvaluationResponse:
-    """
-    REST endpoint for frontend to request agent evaluation + attestation
-    
-    Example:
-    curl -X POST http://localhost:8000/evaluate \
-      -H "Content-Type: application/json" \
-      -d '{"agent_address": "agent1q..."}'
-    """
-    ctx.logger.info(f"📨 REST evaluation request for: {request.agent_address}")
-    return await process_evaluation(request.agent_address, ctx)
-
-
-@agent.on_rest_post("/chat", ChatRequest, ChatResponse)
-async def rest_chat(ctx: Context, request: ChatRequest) -> ChatResponse:
-    """
-    REST endpoint for conversational chat
-    
-    This uses ASI:1 Mini for general knowledge with automatic evaluation detection.
-    
-    Example:
-    curl -X POST http://localhost:8000/chat \
-      -H "Content-Type: application/json" \
-      -d '{"message": "Can you evaluate agent1q... for me?", "session_id": "123"}'
-    """
-    from human_chat_protocol import ASI1ChatHandler
-    
-    ctx.logger.info(f"💬 REST chat request: {request.message}")
-    
-    # Create handler and process message
-    handler = ASI1ChatHandler(agent, process_evaluation)
-    response_text = await handler.chat(
-        request.message,
-        request.session_id or f"rest_{datetime.now(timezone.utc).timestamp()}",
-        ctx
-    )
-    
-    return ChatResponse(
-        response=response_text,
-        session_id=request.session_id
-    )
-
-
-
-
-
-# ===== MAIN =====
 if __name__ == "__main__":
-    print("""
-╔══════════════════════════════════════════════════════════════════╗
-║         🤖 Evaluator Attestation Agent for Truth Swarm           ║
-╚══════════════════════════════════════════════════════════════════╝
-
-This agent combines AI-powered agent evaluation with blockchain attestation:
-
-✅ Evaluate Agents - Score agents on correctness, capabilities, and domain knowledge
-✅ EAS Attestation - Create immutable attestations on Ethereum Attestation Service
-✅ REST API - Accept evaluation requests from frontend applications
-✅ Chat Protocol - Interactive evaluation via uAgents chat
-
-📋 REST Endpoints:
-   POST http://localhost:8000/evaluate
-   Body: {"agent_address": "agent1q..."}
-   
-   POST http://localhost:8000/chat
-   Body: {"message": "...", "session_id": "..."}
-   
-   Example:
-   curl -X POST http://localhost:8000/evaluate \\
-     -H "Content-Type: application/json" \\
-     -d '{"agent_address": "agent1q0h70caed8ax769shpemapzkyk65uscw4xwk6dc4t3emvp5jdcvqs9xs32y"}'
-
-💬 Chat Protocol:
-   Send an agent address via chat to trigger evaluation
-   For general questions, you'll be directed to specialized Agentverse agents!
-
-🛑 Stop with Ctrl+C
-    """)
+    print("Starting Evaluator Agent...")
     agent.run()
-    

@@ -43,39 +43,56 @@ export function ChatInteraction() {
       timestamp: Date.now(),
     };
 
-    // Add user message to chat
     setMessages((prev) => [...prev, userMessage]);
     setInput("");
     setIsLoading(true);
 
-    // Activate chat mode on first message
     if (!isActive) {
       setIsActive(true);
     }
 
-    const agentAddress = await getSampleAgentAddress();
-
     try {
-      // Send message to agent
-      const { response, sessionId: newSessionId } = await sendMessageToAgent(
-        agentAddress,
-        userMessage.content,
-        sessionId
-      );
+      const agentAddressToEvaluate = userMessage.content;
+      console.log("Sending to Evaluator Agent:", agentAddressToEvaluate);
 
-      // Update session ID
-      if (newSessionId && !sessionId) {
-        setSessionId(newSessionId);
-      }
+      // Step 1: Send the evaluation request and get confirmation
+      await sendToEvaluatorAgent(agentAddressToEvaluate);
 
-      // Add agent response to chat
+      // Add a message indicating evaluation has started
+      const pendingMessage: Message = {
+        role: "agent",
+        content: `Evaluation for agent \`${agentAddressToEvaluate.substring(
+          0,
+          20
+        )}...\` has started. Please wait...`,
+        timestamp: Date.now(),
+      };
+      setMessages((prev) => [...prev, pendingMessage]);
+
+      // Step 2: Poll for the result
+      const report = await pollForResult(agentAddressToEvaluate);
+
+      // Step 3: Display the final report
+      const reportContent = `
+### Evaluation Report for ${report.evaluatedAgentAddress.substring(0, 20)}...
+
+- **Final Score:** ${report.final_score}
+- **Grade:** ${report.grade}
+- **Attestation UID:** \`${
+        report.attestation_uid
+          ? report.attestation_uid.substring(0, 25)
+          : "N/A"
+      }...\`
+`;
+
       const agentMessage: Message = {
         role: "agent",
-        content: response,
+        content: reportContent,
         timestamp: Date.now(),
       };
 
-      setMessages((prev) => [...prev, agentMessage]);
+      // Replace the pending message with the final report
+      setMessages((prev) => [...prev.slice(0, -1), agentMessage]);
     } catch (error) {
       console.error("Failed to send message:", error);
 
@@ -95,6 +112,64 @@ export function ChatInteraction() {
       }, 100);
     }
   };
+
+  // Sending the target agent address to the backend evaluator agent
+  async function sendToEvaluatorAgent(agentAddress: string) {
+    try {
+      const payload = await fetch("http://localhost:8000/evaluate", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ agent_address: agentAddress }),
+      });
+
+      if (!payload.ok) {
+        throw new Error(`Evaluation request failed: ${payload.statusText}`);
+      }
+
+      const data = await payload.json();
+      if (data.status !== 'accepted') {
+        throw new Error(data.message || "Agent did not accept the request.");
+      }
+      console.log("Evaluator Agent Response:", data);
+      return data;
+    } catch (error) {
+      console.error("Error sending to evaluator agent:", error);
+      throw error;
+    }
+  }
+  async function pollForResult(agentAddress: string) {
+    const MAX_ATTEMPTS = 10;
+    const DELAY_MS = 3000; // 3 seconds
+
+    for (let i = 0; i < MAX_ATTEMPTS; i++) {
+      await new Promise(resolve => setTimeout(resolve, DELAY_MS));
+      console.log(`Polling for result... Attempt ${i + 1}`);
+
+      try {
+        const response = await fetch("http://localhost:8000/get_report", {
+          method: "POST", // uAgents @on_query uses POST
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ agent_address: agentAddress }),
+        });
+
+        if (!response.ok) continue; // Ignore failed polls
+
+        const result = await response.json();
+        if (result.grade !== "PENDING") {
+          console.log("Final report received:", result);
+          return result;
+        }
+      } catch (e) {
+        console.error("Polling error:", e);
+      }
+    }
+
+    throw new Error("Evaluation timed out. No result received from the agent.");
+  }
+
+
 
   return (
     <div
@@ -163,7 +238,7 @@ export function ChatInteraction() {
               "[--radius:9999rem] transition-all",
               isActive ? "p-6" : "p-8"
             )}
-            placeholder="Send a message"
+            placeholder="Enter an agent address to evaluate"
             value={input}
             onChange={(e) => setInput(e.target.value)}
             disabled={isLoading}

@@ -33,34 +33,34 @@ class ASI1ChatHandler:
     Chat handler with ASI:1 Mini LLM for general knowledge
     Switches to evaluation mode when agent addresses are detected
     """
-    
+
     def __init__(self, agent: Agent, process_evaluation_func):
         self.agent = agent
         self.process_evaluation = process_evaluation_func
         # ASI:1 Mini model endpoint
         self.asi1_url = "https://api.asi1.ai/v1/chat/completions"
         self.api_key = os.getenv('ASI_ONE_API_KEY', '')
-        
+
         # Debug: Check if API key is loaded
         if self.api_key:
-            print(f"✅ ASI_ONE_API_KEY loaded (length: {len(self.api_key)})")
+            print(f"ASI_ONE_API_KEY loaded (length: {len(self.api_key)})")
         else:
-            print("⚠️  ASI_ONE_API_KEY not found in environment variables!")
-    
+            print("ASI_ONE_API_KEY not found in environment variables!")
+
     async def chat(self, message: str, session_id: str, ctx: Context) -> str:
         """Process chat message - use ASI:1 for general knowledge or evaluate agents"""
-        
+
         # Priority 1: Check for direct agent address (evaluation request)
         agent_match = re.search(r'agent1[a-z0-9]{59}', message)
         if agent_match:
             ctx.logger.info(f"🎯 Evaluation request detected: {agent_match.group(0)}")
             result = await self.process_evaluation(agent_match.group(0), ctx)
             return self._format_evaluation_result(result)
-        
+
         # Priority 2: Use ASI:1 Mini for general knowledge
         ctx.logger.info(f"💭 Using ASI:1 Mini for general query")
         return await self._ask_asi1(message, session_id, ctx)
-    
+
     async def _ask_asi1(self, message: str, session_id: str, ctx: Context) -> str:
         """Query ASI:1 Mini model for general knowledge"""
         try:
@@ -99,7 +99,7 @@ Keep responses concise, helpful, and friendly. If you don't know something, just
         except Exception as e:
             ctx.logger.error(f"ASI:1 error: {e}")
             return self._fallback_response(message)
-    
+
     def _format_evaluation_result(self, result) -> str:
         """Format evaluation result for chat display"""
         if result.success:
@@ -121,7 +121,7 @@ Ask me anything else about this evaluation or evaluate another agent!"""
 Error: {result.error}
 
 Please check the agent address and try again."""
-    
+
     def _fallback_response(self, message: str) -> str:
         """Fallback when ASI:1 is not available"""
         lower_msg = message.lower()
@@ -132,7 +132,7 @@ Please check the agent address and try again."""
 
 I evaluate AI agents across three dimensions:
 • Correctness (40%): Accuracy and reliability
-• Capabilities (30%): Features and functionality  
+• Capabilities (30%): Features and functionality
 • Domain Knowledge (30%): Specialized expertise
 
 Evaluations are stored on-chain as EAS attestations, creating a permanent trust record.
@@ -168,17 +168,17 @@ def create_text_chat(text: str, end_session: bool = True) -> ChatMessage:
 def create_chat_protocol(agent: Agent, process_evaluation_func) -> Protocol:
     """
     Create and configure the chat protocol for agent evaluation
-    
+
     Args:
         agent: The uAgent instance
         process_evaluation_func: Function to call for evaluations
-        
+
     Returns:
         Configured chat protocol
     """
     # Initialize chat handler with ASI:1 Mini for general knowledge
     chat_handler = ASI1ChatHandler(agent, process_evaluation_func)
-    
+
     # Create protocol
     chat_proto = Protocol(spec=chat_protocol_spec)
 
