@@ -188,6 +188,10 @@ def run_evaluator_agent(eval_data, tested_agent_response):
             experiment_prefix="truth-swarm",
             max_concurrency=2
         )
+        
+        # Wait for evaluation to complete before accessing results
+        langsmith_response.wait()
+        
         # Access the _results attribute which contains the evaluation data
         results = langsmith_response._results[0]["evaluation_results"]["results"]
         if not results:
