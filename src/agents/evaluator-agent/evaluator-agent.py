@@ -12,6 +12,7 @@ from openevals.llm import create_llm_as_judge
 from openevals.prompts import CORRECTNESS_PROMPT
 from datetime import datetime
 from uuid import uuid4
+import uuid
 import re
 
 # Load environment variables from .env file
@@ -73,7 +74,7 @@ dataSetsByCategory = [
 # STATE MANAGEMENT CLASS
 class EvalState:
     def __init__(self):
-        self.currentQuestionId = ""
+        self.data_set_name = ""
         self.currentCategory = ""
         self.currentEvalData = None
         self.currentResponse = ""
@@ -81,8 +82,11 @@ class EvalState:
         self.agent = None
     
     def set_current_question(self, question_id, category):
-        self.currentQuestionId = question_id
         self.currentCategory = category
+
+        # Set current data set name by generating a uuid
+    def set_data_set_name(self):
+        self.data_set_name = 'truth-swarm-' + str(uuid.uuid4())
 
     def set_current_eval_data(self, eval_data):
         self.currentEvalData = eval_data
@@ -103,6 +107,11 @@ eval_state = EvalState()
 
 ################# EVAL UTIL FUNCTIONS #################
 def run_evaluation_correctness_task(inputs: dict, outputs: dict, reference_outputs: dict):
+    #print the inputs, outputs and reference outputs
+    print("Running evaluation correctness task...")
+    print("Inputs: ", inputs)
+    print("Outputs: ", outputs)
+    print("Reference Outputs: ", reference_outputs)
     evaluator = create_llm_as_judge(
         prompt=CORRECTNESS_PROMPT,
         model="openai:o3-mini",
@@ -118,11 +127,29 @@ def run_evaluation_correctness_task(inputs: dict, outputs: dict, reference_outpu
 def target(tested_agent_response) -> dict:
     return { "answer": tested_agent_response.strip() }
 
+def create_dataset(eval_data):
+    print("Creating new dataset: evaluator_dataset")
+    # https://smith.langchain.com/onboarding?organizationId=44cc621b-830d-4ea0-b5d5-be6b304c547e&step=4
+    
+    # Create dataset and register name with state
+    eval_state.set_data_set_name()
+    dataset = langsmith_client.create_dataset(
+        dataset_name=eval_state.data_set_name,
+        description="Dataset for evaluator agent"     
+    )
+    
+    # Add examples only when creating new dataset
+    langsmith_client.create_examples(
+        dataset_id=dataset.id,
+        examples=eval_data
+    )
+    
+    return dataset
 
 ################# EVALUATOR AGENT #################
 subject_matter = "Return ONLY valid JSON matching the provided schema. You are an evaluator agent that evaluates the performance of other agents in a game. You evaluate the agent's responses and provide a rating for each category by evaluating the input json expected key."
 
-langsmith_client = Client(api_key=os.getenv("LANGCHAIN_API_KEY"))
+langsmith_client = Client()
 
 def run_evaluator_agent(eval_data, tested_agent_response):
     response = 'I am afraid something went wrong and I am unable to answer your question at the moment'
@@ -132,27 +159,16 @@ def run_evaluator_agent(eval_data, tested_agent_response):
         return response
 
     # Reuse existing dataset or create it once
-    try:
-        # Try to get existing dataset first
-        dataset = langsmith_client.read_dataset(dataset_name="evaluator_dataset")
-        print("Reusing existing dataset: evaluator_dataset")
-    except:
-        # Create dataset only if it doesn't exist
-        print("Creating new dataset: evaluator_dataset")
-        
-        dataset = langsmith_client.create_dataset(
-            dataset_name="evaluator_dataset_1",
-            description="Dataset for evaluator agent"       
-        )
-        
-        # Add examples only when creating new dataset
-        langsmith_client.create_examples(
-            dataset_id=dataset.id,
-            examples=eval_data
-        )
+    if eval_state.data_set_name:
+        # Dataset name exists, try to read it
+        try:
+            dataset = langsmith_client.read_dataset(dataset_name=eval_state.data_set_name)
+            print("Reusing existing dataset: " + eval_state.data_set_name)
+        except:
+            dataset = create_dataset(eval_data)
+    else:
+        dataset = create_dataset(eval_data)
     
-    # https://smith.langchain.com/onboarding?organizationId=44cc621b-830d-4ea0-b5d5-be6b304c547e&step=4
-
     print("Running test scoring...")
     print(f"Eval data: {eval_data}")
     print(f"Agent response: {tested_agent_response}")
@@ -164,9 +180,10 @@ def run_evaluator_agent(eval_data, tested_agent_response):
     
     # Run LangSmith evaluation
     try:
+        # Use the dataset object for evaluation
         langsmith_response = langsmith_client.evaluate(
             evaluation_target,
-            data=dataset,
+            data=dataset,  # Pass the dataset object
             evaluators=[run_evaluation_correctness_task],
             experiment_prefix="truth-swarm",
             max_concurrency=1  # Reduce concurrency to avoid issues
@@ -218,10 +235,6 @@ async def init_eval(ctx: Context):
     ctx.logger.info(
         f"Eval started for.. {category} on {TEST_TARGET_AGENT_ADDRESS}"
     )
-    
-    # Set current question in state
-    # eval_state.set_current_question(evalData[0]["id"], category)
-    # ctx.logger.info(f"Set currentQuestionId to: {eval_state.currentQuestionId}")
     
     # Send to target agent using ChatMessage format
     await ctx.send(
