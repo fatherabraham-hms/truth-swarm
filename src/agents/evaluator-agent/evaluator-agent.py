@@ -3,16 +3,15 @@ from pathlib import Path
 from dotenv import load_dotenv
 from uagents import Agent, Context, Model
 from uagents_core.contrib.protocols.chat import (
-    ChatAcknowledgement,
     ChatMessage,
-    EndSessionContent,
     TextContent,
-    chat_protocol_spec,
 )
 from openai import OpenAI
+from langsmith import Client
+from openevals.llm import create_llm_as_judge
+from openevals.prompts import CORRECTNESS_PROMPT
 from datetime import datetime
 from uuid import uuid4
-import random
 import re
 
 # Load environment variables from .env file
@@ -53,23 +52,23 @@ dataSetsByCategory = [
     "evalData": [
         {
             "id": "travel-1",
-            "prompt": "What are the top 3 most popular travel destinations in Argentina in 2025?",
-            "expected": "Buenos Aires, Iguaza Falls, Patagonia"
+            "inputs": {"question": "What are the top 3 most popular travel destinations in Argentina in 2025?"},
+            "outputs": {"answer": "Buenos Aires, Iguaza Falls, Patagonia"}
         }]},
     {"category": "defi", "evalData":
     [
         {
             "id": "defi-1",
-            "prompt": "What are the top 3 best performing crypto tokens in 2025?",
-            "expected": "Solana, XRP, Bitcoin"
+            "inputs": {"question": "What are the top 3 best performing crypto tokens in 2025?"},
+            "outputs": {"answer": "Solana, XRP, Bitcoin"}
         },
     ]},
     {"category": "halloween", "evalData":
     [
         {
             "id": "halloween-1",
-            "prompt": "Give me a creature that is a cross between a bull and a bee",
-            "expected": "Bull Bee"
+            "inputs": {"question": "Give me a creature that is a cross between a bull and a bee"},
+            "outputs": {"answer": "Bull Bee"}
         },
     ]},
 ]
@@ -105,16 +104,28 @@ class EvalState:
 # Global state instance
 eval_state = EvalState()
 
+################# EVAL UTIL FUNCTIONS #################
+def run_evaluation_correctness_task(inputs: dict, outputs: dict, reference_outputs: dict):
+    evaluator = create_llm_as_judge(
+        prompt=CORRECTNESS_PROMPT,
+        model="openai:o3-mini",
+        feedback_key="correctness",
+    )
+    eval_result = evaluator(
+        inputs=inputs,
+        outputs=outputs,
+        reference_outputs=reference_outputs
+    )
+    return eval_result    
+
+def target(tested_agent_response) -> dict:
+    return { "answer": tested_agent_response.strip() }
+
+
 ################# EVALUATOR AGENT #################
 subject_matter = "Return ONLY valid JSON matching the provided schema. You are an evaluator agent that evaluates the performance of other agents in a game. You evaluate the agent's responses and provide a rating for each category by evaluating the input json expected key."
 
-client = OpenAI(
-    # By default, we are using the ASI-1 LLM endpoint and model
-    base_url='https://api.asi1.ai/v1',
-
-    # You can get an ASI-1 api key by creating an account at https://asi1.ai/dashboard/api-keys
-    api_key=os.getenv("ASI1_API_KEY"),
-)
+langsmith_client = Client(api_key=os.getenv("LANGCHAIN_API_KEY"))
 
 def run_evaluator_agent(eval_data, tested_agent_response):
     response = 'I am afraid something went wrong and I am unable to answer your question at the moment'
@@ -122,111 +133,34 @@ def run_evaluator_agent(eval_data, tested_agent_response):
     if not eval_data or not tested_agent_response:
         print("No eval data or tested agent response")
         return response
+
+    dataset = langsmith_client.create_dataset(
+        name="evaluator_dataset",
+        description="Dataset for evaluator agent"       
+    )
+
+    langsmith_client.create_examples(
+        dataset_id=dataset.id,
+        examples=eval_data
+    )
     
-    # Check API key
-    api_key = os.getenv("ASI1_API_KEY")
-    if not api_key:
-        print("ERROR: ASI1_API_KEY environment variable is not set!")
-        return response
-    else:
-        print(f"API key found (first 10 chars): {api_key[:10]}...")
-    
+    # https://smith.langchain.com/onboarding?organizationId=44cc621b-830d-4ea0-b5d5-be6b304c547e&step=4
+
     print("Running test scoring...")
     print(f"Eval data: {eval_data}")
     print(f"Agent response: {tested_agent_response}")
-    try:
-        r = client.chat.completions.create(
-            model="asi1-mini",
-            messages=[
-                {"role": "system", "content": f"""
-        {subject_matter}
-        
-        You will receive evaluation data containing:
-        - human: The original question from the human
-        - context: Context about what the agent should do
-        - response: The agent's actual response
-        
-        Evaluate the agent's response and provide scores (0-5, can be decimals) for:
-        - accuracy: How factually correct is the response?
-        - clarity: How clear and understandable is the response?
-        - completeness: How complete is the response in addressing the question?
-        - relevance: How relevant is the response to the original question?
-        - tone: How appropriate is the tone and helpfulness?
-        - overall_rating: Weighted average of the above scores
-        - overall_reasoning: Explanation of your evaluation
-        
-        Return the exact JSON format specified in the schema. NEVER INCLUDE COMMENTS IN THE JSON RESPONSE.
-                """},
-                {"role": "user", "content": eval_data},
-            ],
-            response_format={
-                "type": "json_schema",
-                "json_schema": {
-                    "type": "object",
-                    "properties": {
-                        "accuracy": {"type": "number", "minimum": 0, "maximum": 5},
-                        "clarity": {"type": "number", "minimum": 0, "maximum": 5},
-                        "completeness": {"type": "number", "minimum": 0, "maximum": 5},
-                        "relevance": {"type": "number", "minimum": 0, "maximum": 5},
-                        "tone": {"type": "number", "minimum": 0, "maximum": 5},
-                        "overall_rating": {"type": "number", "minimum": 0, "maximum": 5},
-                        "overall_reasoning": {"type": "string"}
-                    },
-                    "required": ["accuracy", "clarity", "completeness", "relevance", "tone", "overall_rating", "overall_reasoning"]
-                }
-            },
-            temperature=0.1,
-            stream=False,
-            max_tokens=2048,
+    
+    langsmith_response = langsmith_client.evaluate(
+        target,
+        data="Sample dataset",
+        evaluators=[run_evaluation_correctness_task],
+        experiment_prefix="truth-swarm",
+        max_concurency=2
         )
+    
+    return langsmith_response
 
-        response = str(r.choices[0].message.content)
-        # print(f"Raw API response: {response}")
-        
-        # Try to parse as JSON to validate format
-        try:
-            import json
-            # remove everythig before the ```json
-            response = response.split('```json')[1]
-            # Remove any leading/trailing whitespace
-            response = response.strip()
-            # Remove any leading/trailing backticks
-            response = response.strip('`')
-            # Remove any leading/trailing newlines
-            response = response.strip('\n')
-            # remove the string ```json
-            response = response.replace('```json', '')
-            # remove the string ```
-            response = response.replace('```', '')
-            parsed_response = json.loads(response)
-            print(f"Successfully parsed JSON: {parsed_response}")
-            return parsed_response
-        except json.JSONDecodeError as json_err:
-            print(f"JSON parsing error: {json_err}")
-            print(f"Raw response that failed to parse: {response}")
-            return response
-            
-    except Exception as e:
-        print(f'Error querying model: {type(e).__name__}: {str(e)}')
-        
-        # Check for specific common issues
-        if "api_key" in str(e).lower():
-            print("API Key issue detected. Check your ASI1_API_KEY environment variable.")
-        elif "connection" in str(e).lower() or "network" in str(e).lower():
-            print("Network connection issue. Check your internet connection and API endpoint.")
-        elif "unauthorized" in str(e).lower() or "401" in str(e):
-            print("Authentication failed. Verify your API key is correct.")
-        elif "rate limit" in str(e).lower() or "429" in str(e):
-            print("Rate limit exceeded. Wait before making more requests.")
-        
-        import traceback
-        print("Full traceback:")
-        traceback.print_exc()
-        
-    return response
-
-
-################# UTIITY FUNCTIONS #################
+################# UTILITY FUNCTIONS #################
 
 def retrieveCategoryByAgentAddress(agentAddress):
     category = None
@@ -273,7 +207,7 @@ async def init_eval(ctx: Context):
         message=ChatMessage(
             timestamp=datetime.now(),
             msg_id=uuid4(),
-            content=[TextContent(type="text", text=evalData[0]["prompt"])]
+            content=[TextContent(type="text", text=evalData[0]["inputs"]["question"])]
         )
     )
 class AIRequest(Model):
