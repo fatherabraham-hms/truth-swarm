@@ -1,0 +1,35 @@
+# Streamlined requirements for Truth Swarm Evaluator Agent
+# Core AI/ML packages
+openai==2.6.0
+langsmith==0.4.37
+openevals==0.1.0
+
+# Fetch.ai uAgents framework
+uagents==0.22.10
+uagents-core==0.3.11
+
+# Core Python utilities
+requests==2.32.3
+python-dotenv==1.0.0
+pydantic==2.10.3
+
+# Crypto/Web3 (if needed for agent communication)
+cosmpy==0.11.1
+bech32==1.2.0
+ecdsa==0.19.1
+
+# Basic data processing
+numpy==1.26.4
+pandas==2.2.3
+
+# Development tools (optional)
+python-dateutil==2.9.0.post0
+
+
+####### FINAL #####
+# python -m pip install openai==2.6.0
+# python -m pip install langsmith==0.4.37
+# python -m pip install uagents==0.22.10
+# python -m pip install python-dotenv==1.0.0
+# python -m pip install requests==2.32.3
+# python -m pip install pydantic==2.10.3
