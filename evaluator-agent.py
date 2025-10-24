@@ -9,11 +9,27 @@ from uagents_core.contrib.protocols.chat import (
 from openai import OpenAI
 from langsmith import Client
 from openevals.llm import create_llm_as_judge
-from openevals.prompts import CORRECTNESS_PROMPT
+from openevals.prompts import (
+    CORRECTNESS_PROMPT,
+    CONCISENESS_PROMPT, 
+    HALLUCINATION_PROMPT,
+    RAG_HELPFULNESS_PROMPT
+)
 from datetime import datetime
 from uuid import uuid4
 import uuid
 import re
+
+# Load environment variables
+# Default to local development - load from .env file
+# Only skip dotenv when running on Railway
+if not os.getenv("RAILWAY_ENVIRONMENT_ID"):
+    # Running locally - load from .env file
+    env_path = Path(__file__).parent / '.env'
+    load_dotenv(dotenv_path=env_path)
+else:
+    # Running on Railway - environment variables are already loaded
+    pass
 
 SEED_PHRASE = os.getenv("TRUTH_SWARM_AGENT_SEED_PHRASE")
 if not SEED_PHRASE:
@@ -151,6 +167,34 @@ def create_dataset(eval_data):
     
     return dataset
 
+def create_evaluators():
+    return [
+        create_llm_as_judge(
+            prompt=CORRECTNESS_PROMPT,
+            model="openai:o3-mini",
+            feedback_key="correctness",
+            continuous=True
+        ),
+        create_llm_as_judge(
+            prompt=CONCISENESS_PROMPT,
+            model="openai:o3-mini", 
+            feedback_key="conciseness",
+            continuous=True
+        ),
+        create_llm_as_judge(
+            prompt=HALLUCINATION_PROMPT,
+            model="openai:o3-mini",
+            feedback_key="hallucination",
+            continuous=True
+        ),
+        create_llm_as_judge(
+            prompt=RAG_HELPFULNESS_PROMPT,
+            model="openai:o3-mini",
+            feedback_key="helpfulness",
+            continuous=True
+        )
+    ]
+
 ################# EVALUATOR AGENT #################
 subject_matter = "Return ONLY valid JSON matching the provided schema. You are an evaluator agent that evaluates the performance of other agents in a game. You evaluate the agent's responses and provide a rating for each category by evaluating the input json expected key."
 
@@ -182,14 +226,16 @@ def run_evaluator_agent(eval_data, tested_agent_response):
     def evaluation_target(inputs):
         # Return the actual agent response we want to evaluate
         return {"answer": tested_agent_response}
-    
+
+    evaluators = create_evaluators()
+
     # Run LangSmith evaluation
     try:
         # Use the dataset object for evaluation
         langsmith_response = langsmith_client.evaluate(
             evaluation_target,
             data=dataset,  # Pass the dataset object
-            evaluators=[run_evaluation_correctness_task],
+            evaluators=evaluators,
             experiment_prefix="truth-swarm",
             max_concurrency=2
         )
