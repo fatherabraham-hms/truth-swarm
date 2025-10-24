@@ -1,0 +1,17 @@
+# meTTa_eval_agent requirements
+# Core uAgents framework
+uagents==0.22.5
+
+# meTTa framework for symbolic reasoning (optional)
+metta>=0.1.0
+
+# Data validation and environment
+pydantic>=2.0.0
+python-dotenv>=1.0.0
+
+# HTTP client for AgentVerse API requests
+httpx>=0.24.0
+
+# Development and testing
+pytest>=7.0.0
+pytest-asyncio>=0.21.0
