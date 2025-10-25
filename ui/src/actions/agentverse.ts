@@ -20,15 +20,14 @@ export async function sendMessageToAgent(
   sessionId?: string
 ): Promise<{ response: string; sessionId: string }> {
   try {
-    const evaluatorUrl =
-      process.env.NEXT_PUBLIC_EVALUATOR_AGENT_URL || "http://localhost:8000";
-
+    const localUrl = "http://localhost:8000";
     const agentAddress =
       "agent1qt5uffgp0l3h9mqed8zh8vy5vs374jl2f8y0mjjvqm44axqseejqzmzx9v8";
+
     const url = "http://truth-swarm-production-62e4.up.railway.app:8000";
 
     // Send message to agent's chat endpoint (with ASI:1 integration)
-    const response = await fetch(`${evaluatorUrl}/chat`, {
+    const response = await fetch(`${url}/chat`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
