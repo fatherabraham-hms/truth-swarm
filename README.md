@@ -1,6 +1,16 @@
 # Truth Swarm
 
-Truth Swarm is a verification mechanism for consumer protections in the age of agentic AI. It provides a decentralized attestation system that enables AI agents to create verifiable evaluations and human verifications of other agents' performance.
+Truth Swarm is a verification mechanism for consumer protections in the age of agentic AI.
+
+Through a series of evaluations including prompts and ground truth answers, an target agent is evaluated based on:
+
+   capabilities_score
+   domain_score
+   correctness_score
+   conciseness_score
+   helpfulness_score
+
+Ethereum Attestation Service is used as a decentralized attestation system that enables the evaluator agent to create verifiable evaluations of the tested agents' performance.
 
 ## 🎯 Overview
 

@@ -82,7 +82,7 @@ EVAL_CATEGORIES = [
 agentsByCategory = [
     {"category": "travel", "address": "agent1q282hfw3kpqzs6pqndp7hk68tpgycarqkj5pwuwyfuxsu8sm807p7pkq2er", "wallet": "fetch1lpwf86sdz3wcs2xvx5wjl7c3vzewt8q42d24wx"},
     {"category": "defi", "address": "agent1q2c8sxs5kg902j96ffruh0he2erhjf63eahrypzvj20gjraevxlggy4fq33", "wallet": "fetch1u4tnce3wsldqgp4ws5vesey60aq82k5ln8czn7"},
-    {"category": "halloween", "address": "agent1qtzkq9stasjkl54js9ej604pvtcnp9l2m8s3u4mnvjcz3q4qerc5zmahxcq", "wallet": "fetch1zptj47xfa6kh7wyvtt3eem72p8r7547ygmuwa7"},
+    {"category": "weather", "address": "agent1qfvydlgcxrvga2kqjxhj3hpngegtysm2c7uk48ywdue0kgvtc2f5cwhyffv", "wallet": "fetch1zptj47xfa6kh7wyvtt3eem72p8r7547ygmuwa7"},
 ]
 
 dataSetsByCategory = [
@@ -91,19 +91,41 @@ dataSetsByCategory = [
         {
             "inputs": {"question": "What are the top 3 most popular travel destinations in Argentina in 2025?"},
             "outputs": {"answer": "Buenos Aires, Iguaza Falls, Patagonia"}
-        }]},
+        },
+        {
+            "inputs": {"question": "What is the largest international airport in Argentina?"},
+            "outputs": {"answer": "Ezeiza International Airport"}
+        },
+        {
+            "inputs": {"question": "What is the median cost for a hotel in Buenos Aires?"},
+            "outputs": {"answer": "The median cost for a hotel in Buenos Aires is some amount between 0 and 1000 USD"}
+        }
+        ]
+        },
     {"category": "defi", "evalData":
     [
         {
             "inputs": {"question": "What are the top 3 best performing crypto tokens in 2025?"},
             "outputs": {"answer": "Solana, XRP, Bitcoin"}
         },
+        {
+            "inputs": {"question": "What are the most popular agentic tokens in 2025?"},
+            "outputs": {"answer": "FET, TRAC, TAO"}
+        }
     ]},
-    {"category": "halloween", "evalData":
+    {"category": "weather", "evalData":
     [
         {
-            "inputs": {"question": "Give me a creature that is a cross between a bull and a bee"},
-            "outputs": {"answer": "Bull Bee"}
+            "inputs": {"question": "What is the weather in Tokyo?"},
+            "outputs": {"answer": "The weather in Tokyo is sunny and between 0 and 30 degrees Celsius"}
+        },
+        {
+            "inputs": {"question": "What is the weather in San Francisco?"},
+            "outputs": {"answer": "The weather in San Francisco is sunny and between 0 and 30 degrees Celsius"}
+        },
+        {
+            "inputs": {"question": "What is the humidity in London?"},
+            "outputs": {"answer": "The humidity in London is some percent between 0 and 100"}
         },
     ]},
 ]
@@ -115,25 +137,53 @@ class EvalState:
         self.requesterAddress = ""
         self.currentCategory = ""
         self.currentEvalData = None
-        self.currentResponse = ""
+        self.currentQuestionIndex = 0
+        self.responses = []  # Store all responses
         self.evalResults = {}
         self.agent = None
+        
     def set_requester_address(self, requester_address):
         self.requesterAddress = requester_address
+        
     def get_requester_address(self):
         return self.requesterAddress
+        
     def set_current_question(self, question_id, category):
         self.currentCategory = category
 
-        # Set current data set name by generating a uuid
+    # Set current data set name by generating a uuid
     def set_data_set_name(self):
         self.data_set_name = 'truth-swarm-' + str(uuid.uuid4())
 
     def set_current_eval_data(self, eval_data):
         self.currentEvalData = eval_data
+        self.currentQuestionIndex = 0
+        self.responses = []
 
-    def add_reponse(self, response):
-        self.currentResponse = response
+    def add_response(self, response):
+        """Add a response for the current question"""
+        self.responses.append({
+            "question_index": self.currentQuestionIndex,
+            "response": response
+        })
+    
+    def get_current_question(self):
+        """Get the current question to ask"""
+        if self.currentEvalData and self.currentQuestionIndex < len(self.currentEvalData):
+            return self.currentEvalData[self.currentQuestionIndex]
+        return None
+    
+    def advance_question(self):
+        """Move to the next question"""
+        self.currentQuestionIndex += 1
+    
+    def has_more_questions(self):
+        """Check if there are more questions to ask"""
+        return self.currentEvalData and self.currentQuestionIndex < len(self.currentEvalData)
+    
+    def all_questions_answered(self):
+        """Check if all questions have been answered"""
+        return self.currentEvalData and len(self.responses) == len(self.currentEvalData)
     
     def add_eval_result(self, correctness, capabilities, domainKnowledge, speed):
         self.evalResults = {
@@ -142,6 +192,12 @@ class EvalState:
                 "domainKnowledge": domainKnowledge,
                 "speed": speed
         }
+    
+    def reset(self):
+        """Reset state for new evaluation"""
+        self.currentQuestionIndex = 0
+        self.responses = []
+        self.evalResults = {}
 
 # Global state instance
 eval_state = EvalState()
@@ -368,46 +424,6 @@ class AttestationManager:
 
 
 ################# EVAL UTIL FUNCTIONS #################
-def run_evaluations(inputs: dict, outputs: dict, reference_outputs: dict):
-    #print the inputs, outputs and reference outputs
-    print("Running evaluation correctness task...")
-    print("Inputs: ", inputs)
-    print("Outputs: ", outputs)
-    print("Reference Outputs: ", reference_outputs)
-    evaluator = create_llm_as_judge(
-        prompt=CORRECTNESS_PROMPT,
-        model="openai:o3-mini",
-        feedback_key="correctness",
-    )
-    eval_result = evaluator(
-        inputs=inputs,
-        outputs=outputs,
-        reference_outputs=reference_outputs
-    )
-    return eval_result    
-
-def target(tested_agent_response) -> dict:
-    return { "answer": tested_agent_response.strip() }
-
-def create_dataset(eval_data):
-    print("Creating new dataset: evaluator_dataset")
-    # https://smith.langchain.com/onboarding?organizationId=44cc621b-830d-4ea0-b5d5-be6b304c547e&step=4
-    
-    # Create dataset and register name with state
-    eval_state.set_data_set_name()
-    dataset = langsmith_client.create_dataset(
-        dataset_name=eval_state.data_set_name,
-        description="Dataset for evaluator agent"     
-    )
-    
-    # Add examples only when creating new dataset
-    langsmith_client.create_examples(
-        dataset_id=dataset.id,
-        examples=eval_data
-    )
-    
-    return dataset
-
 def create_evaluators():
     return [
         create_llm_as_judge(
@@ -442,45 +458,74 @@ subject_matter = "Return ONLY valid JSON matching the provided schema. You are a
 langsmith_client = Client()
 attestation_manager = AttestationManager()
 
-def run_evaluator_agent(eval_data, tested_agent_response):
+def run_evaluator_agent(eval_data, tested_agent_responses):
+    """
+    Run LangSmith evaluation on agent responses
+    
+    Args:
+        eval_data: List of question/answer pairs
+        tested_agent_responses: List of response dicts with {question_index, response}
+    """
     response = 'I am afraid something went wrong and I am unable to answer your question at the moment'
     
-    if not eval_data or not tested_agent_response:
-        print("No eval data or tested agent response")
+    if not eval_data or not tested_agent_responses:
+        print("No eval data or tested agent responses")
         return response
 
-    # Reuse existing dataset or create it once
-    if eval_state.data_set_name:
-        # Dataset name exists, try to read it
-        try:
-            dataset = langsmith_client.read_dataset(dataset_name=eval_state.data_set_name)
-            print("Reusing existing dataset: " + eval_state.data_set_name)
-        except:
-            dataset = create_dataset(eval_data)
-    else:
-        dataset = create_dataset(eval_data)
+    # Create a mapping of question_index to response
+    response_map = {r['question_index']: r['response'] for r in tested_agent_responses}
+    
+    # Create dataset examples with GROUND TRUTH (reference) answers
+    dataset_examples = []
+    for idx, question_data in enumerate(eval_data):
+        if idx in response_map:
+            dataset_examples.append({
+                "inputs": question_data["inputs"],
+                "outputs": question_data["outputs"]  # Ground truth/reference answer
+            })
+    
+    print(f"Creating dataset with {len(dataset_examples)} question-answer pairs")
+    
+    # Always create a new dataset for this evaluation run
+    eval_state.set_data_set_name()
+    dataset = langsmith_client.create_dataset(
+        dataset_name=eval_state.data_set_name,
+        description=f"Dataset for evaluator agent - {len(dataset_examples)} questions"
+    )
+    
+    # Add examples to dataset
+    langsmith_client.create_examples(
+        dataset_id=dataset.id,
+        examples=dataset_examples
+    )
     
     print("Running test scoring...")
-    print(f"Eval data: {eval_data}")
-    print(f"Agent response: {tested_agent_response}")
+    print(f"Evaluating {len(dataset_examples)} responses")
     
-    # Create a proper target function for this specific response
+    # Create evaluation target that returns the AGENT'S ACTUAL response
     def evaluation_target(inputs):
-        # Return the actual agent response we want to evaluate
-        # Provide context for evaluators that need it (hallucination, helpfulness)
-        return {
-            "answer": tested_agent_response,
-            "context": inputs.get("question", "")
-        }
+        """
+        Return the actual agent response for this question.
+        LangSmith will compare this to the reference outputs in the dataset.
+        """
+        question = inputs.get("question", "")
+        # Find matching response from our stored responses
+        for idx, q_data in enumerate(eval_data):
+            if q_data["inputs"]["question"] == question and idx in response_map:
+                return {
+                    "answer": response_map[idx],  # Agent's actual response
+                    "context": question
+                }
+        # Fallback (shouldn't happen)
+        return {"answer": "", "context": question}
 
     evaluators = create_evaluators()
 
     # Run LangSmith evaluation
     try:
-        # Use the dataset object for evaluation
         langsmith_response = langsmith_client.evaluate(
             evaluation_target,
-            data=dataset,  # Pass the dataset object
+            data=dataset,
             evaluators=evaluators,
             experiment_prefix="truth-swarm",
             max_concurrency=2
@@ -634,18 +679,22 @@ async def init_eval(ctx: Context):
         return
     
     ctx.logger.info(
-        f"Eval started for.. {category} on {TEST_TARGET_AGENT_ADDRESS}"
+        f"Eval started for {category} on {TEST_TARGET_AGENT_ADDRESS}"
     )
+    ctx.logger.info(f"Will ask {len(evalData)} questions")
     
-    # Send to target agent using ChatMessage format
-    await ctx.send(
-        destination=TEST_TARGET_AGENT_ADDRESS, 
-        message=ChatMessage(
-            timestamp=datetime.now(),
-            msg_id=uuid4(),
-            content=[TextContent(type="text", text=evalData[0]["inputs"]["question"])]
+    # Send first question to target agent using ChatMessage format
+    current_question = eval_state.get_current_question()
+    if current_question:
+        await ctx.send(
+            destination=TEST_TARGET_AGENT_ADDRESS, 
+            message=ChatMessage(
+                timestamp=datetime.now(),
+                msg_id=uuid4(),
+                content=[TextContent(type="text", text=current_question["inputs"]["question"])]
+            )
         )
-    )
+        ctx.logger.info(f"Sent question {eval_state.currentQuestionIndex + 1}/{len(evalData)}: {current_question['inputs']['question'][:50]}...")
 class AIRequest(Model):
     question: str
 class AIResponse(Model):
@@ -679,27 +728,71 @@ async def handle_ai_response(ctx: Context, sender: str, msg: ChatMessage):
         return
     #PERFORM EVALUATION BASED ON TARGET AGENT RESPONSE
     else:        
-        eval_state.add_reponse(target_agent_response)
-        await sendConfirmationToRequester(ctx, sender, TEST_TARGET_AGENT_ADDRESS, f"Received response from {TEST_TARGET_AGENT_ADDRESS}.")
-        eval_result = run_evaluator_agent(eval_state.currentEvalData, target_agent_response)
+        # Store the response for the current question
+        eval_state.add_response(target_agent_response)
+        ctx.logger.info(f"Stored response for question {eval_state.currentQuestionIndex + 1}")
         
-        ctx.logger.info(f"LangSmith evaluation completed!")
-        await sendConfirmationToRequester(ctx, sender, TEST_TARGET_AGENT_ADDRESS, f"Evaluation completed successfully for {TEST_TARGET_AGENT_ADDRESS}")
-        # Generate evaluation score
-        evaluation_score = generate_score(TEST_TARGET_AGENT_ADDRESS, ctx, eval_result)
+        # Advance to next question
+        eval_state.advance_question()
         
-        # Create attestation on EAS blockchain
-        ctx.logger.info("🔗 Creating attestation on EAS...")
-        attestation_uid = await attestation_manager.create_attestation(evaluation_score)
+        # Check if there are more questions to ask
+        if eval_state.has_more_questions():
+            # Send next question
+            current_question = eval_state.get_current_question()
+            if current_question:
+                ctx.logger.info(f"Sending question {eval_state.currentQuestionIndex + 1}/{len(eval_state.currentEvalData)}")
+                await ctx.send(
+                    destination=TEST_TARGET_AGENT_ADDRESS, 
+                    message=ChatMessage(
+                        timestamp=datetime.now(),
+                        msg_id=uuid4(),
+                        content=[TextContent(type="text", text=current_question["inputs"]["question"])]
+                    )
+                )
+                requester = eval_state.get_requester_address()
+                if requester:
+                    await sendConfirmationToRequester(ctx, requester, TEST_TARGET_AGENT_ADDRESS, 
+                        f"Received response {eval_state.currentQuestionIndex}/{len(eval_state.currentEvalData)}. Asking next question...")
         
-        if attestation_uid:
-            ctx.logger.info(f"✅ Attestation created: {attestation_uid}")
-            ctx.logger.info(f"📊 Score: {evaluation_score.finalScore}/100 ({evaluation_score.grade})")
-        else:
-            ctx.logger.warning("⚠️  Failed to create attestation on EAS")
-        await sendConfirmationToRequester(ctx, sender, TEST_TARGET_AGENT_ADDRESS, f"Attestation created: {attestation_uid}")
-        ctx.logger.info(f"Evaluation completed for {sender}")
-        ctx.logger.info(f"Total evaluations completed: 1")
+        # All questions answered - run evaluation
+        elif eval_state.all_questions_answered():
+            ctx.logger.info(f"All {len(eval_state.responses)} questions answered. Running evaluation...")
+            
+            requester = eval_state.get_requester_address()
+            if requester:
+                await sendConfirmationToRequester(ctx, requester, TEST_TARGET_AGENT_ADDRESS, 
+                    f"All questions answered. Running evaluation...")
+            
+            # Run evaluation with all collected responses
+            eval_result = run_evaluator_agent(eval_state.currentEvalData, eval_state.responses)
+            
+            ctx.logger.info(f"LangSmith evaluation completed!")
+            if requester:
+                await sendConfirmationToRequester(ctx, requester, TEST_TARGET_AGENT_ADDRESS, 
+                    f"Evaluation completed successfully for {TEST_TARGET_AGENT_ADDRESS}")
+            
+            # Generate evaluation score
+            evaluation_score = generate_score(TEST_TARGET_AGENT_ADDRESS, ctx, eval_result)
+            
+            # Create attestation on EAS blockchain
+            ctx.logger.info("🔗 Creating attestation on EAS...")
+            attestation_uid = await attestation_manager.create_attestation(evaluation_score)
+            
+            if attestation_uid:
+                ctx.logger.info(f"✅ Attestation created: {attestation_uid}")
+                ctx.logger.info(f"📊 Score: {evaluation_score.finalScore}/100 ({evaluation_score.grade})")
+            else:
+                ctx.logger.warning("⚠️  Failed to create attestation on EAS")
+                
+            if requester:
+                await sendConfirmationToRequester(ctx, requester, TEST_TARGET_AGENT_ADDRESS, 
+                    f"Attestation created: {attestation_uid}\nFinal Score: {evaluation_score.finalScore}/100 ({evaluation_score.grade})")
+            
+            ctx.logger.info(f"Evaluation completed for {sender}")
+            ctx.logger.info(f"Total questions evaluated: {len(eval_state.responses)}")
+            
+            # Reset state for next evaluation
+            eval_state.reset()
 
 ########## HUMAN TO AGENT HANDLERS ##########
 @eval_comms_agent.on_message(model=AIRequest, replies={AIResponse})
