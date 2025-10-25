@@ -1,6 +1,6 @@
 # meTTa_eval_agent requirements
-# Core uAgents framework
-uagents==0.22.5
+# Core uAgents framework (compatible with Python 3.9)
+uagents==0.20.1
 
 # meTTa framework for symbolic reasoning (hyperon package)
 hyperon>=0.2.0
