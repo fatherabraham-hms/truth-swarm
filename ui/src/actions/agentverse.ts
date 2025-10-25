@@ -53,11 +53,8 @@ export async function sendMessageToAgent(
     console.error(`Failed to communicate with evaluator:`, error);
 
     return {
-      response: `❌ Could not connect to the evaluator agent. Make sure it's running at ${
-        process.env.NEXT_PUBLIC_EVALUATOR_AGENT_URL || "http://localhost:8000"
-      }
-
-Error: ${error instanceof Error ? error.message : "Unknown error"}`,
+      response: `❌ Could not connect to the evaluator agent. Make sure it's running
+      Error: ${error instanceof Error ? error.message : "Unknown error"}`,
       sessionId: sessionId || generateSessionId(),
     };
   }
