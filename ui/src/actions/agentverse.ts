@@ -1,7 +1,6 @@
 "use server";
 
 import { AgentVerseInfo } from "@/types/agents";
-
 export interface ChatMessage {
   role: "user" | "agent";
   content: string;
@@ -16,13 +15,62 @@ export interface AgentChatSession {
 
 const AGENTVERSE_AGENT_INFO_URL = `https://agentverse.ai/v1/search/agents`;
 
+export async function sendMessageToAgent(
+  message: string,
+  sessionId?: string
+): Promise<{ response: string; sessionId: string }> {
+  try {
+    const evaluatorUrl =
+      process.env.NEXT_PUBLIC_EVALUATOR_AGENT_URL || "http://localhost:8000";
+
+    const agentAddress =
+      "agent1qt5uffgp0l3h9mqed8zh8vy5vs374jl2f8y0mjjvqm44axqseejqzmzx9v8";
+    const url = "http://truth-swarm-production-62e4.up.railway.app:8000";
+
+    // Send message to agent's chat endpoint (with ASI:1 integration)
+    const response = await fetch(`${evaluatorUrl}/chat`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        message: message,
+        session_id: sessionId || generateSessionId(),
+      }),
+      cache: "no-store",
+    });
+
+    if (!response.ok) {
+      throw new Error(
+        `Agent communication failed: ${response.status} ${response.statusText}`
+      );
+    }
+
+    const data = await response.json();
+
+    return {
+      response: data.response,
+      sessionId: data.session_id || sessionId || generateSessionId(),
+    };
+  } catch (error) {
+    console.error(`Failed to communicate with evaluator:`, error);
+
+    return {
+      response: `❌ Could not connect to the evaluator agent. Make sure it's running at ${
+        process.env.NEXT_PUBLIC_EVALUATOR_AGENT_URL || "http://localhost:8000"
+      }
+
+Error: ${error instanceof Error ? error.message : "Unknown error"}`,
+      sessionId: sessionId || generateSessionId(),
+    };
+  }
+}
+
 export async function fetchAgentverseInfo(
   address: string
 ): Promise<AgentVerseInfo | null> {
   try {
-    const response = await fetch(`${AGENTVERSE_AGENT_INFO_URL}/${address}`, {
-      next: { revalidate: 3600 }, // Cache for 1 hour
-    });
+    const response = await fetch(`${AGENTVERSE_AGENT_INFO_URL}/${address}`, {});
 
     if (!response.ok) {
       console.warn(`Agent ${address} not found in Agentverse`);
@@ -62,62 +110,6 @@ export async function fetchMultipleAgentverseInfo(
   await Promise.all(promises);
 
   return results;
-}
-
-export async function sendMessageToAgent(
-  message: string,
-  sessionId?: string
-): Promise<{ response: string; sessionId: string }> {
-  try {
-    // process.env.EVALUATOR_AGENT_ADDRESS
-    const agentAddress = process.env.EVALUATOR_AGENT_ADDRESS;
-    const agentverseApiKey = process.env.AGENTVERSE_API_KEY;
-
-    if (!agentverseApiKey) {
-      throw new Error("AGENTVERSE_API_KEY environment variable is required");
-    }
-
-    const url = `https://agentverse.ai/v1/agents/${agentAddress}/message`;
-    console.log(url);
-    // Use Agentverse messaging API
-    const response = await fetch(url, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${agentverseApiKey}`,
-      },
-      body: JSON.stringify({
-        message: message,
-        session_id: sessionId || generateSessionId(),
-      }),
-      cache: "no-store",
-    });
-
-    if (!response.ok) {
-      throw new Error(
-        `Agent communication failed: ${response.status} ${response.statusText}`
-      );
-    }
-
-    const data = await response.json();
-
-    return {
-      response: data.response,
-      sessionId: data.session_id || sessionId || generateSessionId(),
-    };
-  } catch (error) {
-    console.error(`Failed to communicate with evaluator:`, error);
-
-    return {
-      response: `❌ Could not connect to the Agentverse agent. Make sure:
-1. Your AGENTVERSE_API_KEY is set correctly
-2. The agent is deployed and running on Agentverse
-3. The agent address is correct: agent1qtak6m7rgytst3zqmu744t0k8z4xytf3zrnct49efqvwxzqc3f3t5rkflj4
-
-Error: ${error instanceof Error ? error.message : "Unknown error"}`,
-      sessionId: sessionId || generateSessionId(),
-    };
-  }
 }
 
 function generateSessionId(): string {
