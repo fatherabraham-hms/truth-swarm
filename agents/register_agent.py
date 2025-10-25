@@ -34,12 +34,19 @@ def get_agent_info() -> Dict[str, Any]:
     agent_name = os.getenv("AGENT_NAME", "truth_swarm_categorizer_agent")
     agent_port = int(os.getenv("AGENT_PORT", 8000))
     
+    # Get Railway URL if available
+    railway_url = os.getenv("RAILWAY_PUBLIC_DOMAIN")
+    if railway_url:
+        endpoint_url = f"https://{railway_url}/submit"
+    else:
+        endpoint_url = "http://localhost:8080/submit"
+    
     # Create a temporary agent instance to get the address
     temp_agent = Agent(
         name=agent_name,
         seed="crypto_detection_seed_2024_truth_swarm",
         port=agent_port,
-        endpoint=["http://localhost:8000/submit"],
+        endpoint=[endpoint_url],
         mailbox=False
     )
     
@@ -92,7 +99,7 @@ curl -X POST http://localhost:8000/detect-crypto \
         "name": agent_name.replace("_", " ").title(),
         "description": "Detects cryptocurrency-related agents using meTTa framework and AgentVerse integration",
         "agent_address": str(temp_agent.address),
-        "endpoint": "http://localhost:8000/submit",
+        "endpoint": endpoint_url,
         "capabilities": [
             "crypto_agent_detection",
             "agent_profile_analysis", 
