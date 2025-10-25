@@ -839,6 +839,58 @@ async def extract_features_endpoint(ctx: Context, request: FeatureExtractionRequ
         )
 
 
+@crypto_detection_agent.on_rest_post("/test-categorization", AgentCategorizationRequest, AgentCategorizationResponse)
+async def test_categorization_endpoint(ctx: Context, request: AgentCategorizationRequest) -> AgentCategorizationResponse:
+    """Simple test endpoint for categorization debugging"""
+    print(f"🧪 TEST: Starting test categorization for {request.agent_id}")
+    
+    try:
+        # Test 1: Basic agent profile reading
+        print("🧪 TEST: Step 1 - Reading agent profile...")
+        agent_profile = await read_agent_profile(request.agent_id)
+        print(f"🧪 TEST: Agent profile read successfully: {agent_profile.agent_name}")
+        
+        # Test 2: Simple categorization
+        print("🧪 TEST: Step 2 - Testing simple categorization...")
+        from detection.simple_detector import SimpleDetector
+        simple_detector = SimpleDetector()
+        simple_result = await simple_detector.categorize_agent(agent_profile)
+        print(f"🧪 TEST: Simple categorization successful: {simple_result.get('evaluation_method')}")
+        
+        # Return the simple result
+        return AgentCategorizationResponse(
+            agent_id=request.agent_id,
+            primary_category=simple_result["primary_category"],
+            secondary_categories=simple_result.get("secondary_categories", []),
+            extracted_features=simple_result.get("extracted_features"),
+            crypto_details=simple_result.get("crypto_details"),
+            is_unknown_category=simple_result.get("is_unknown_category", False),
+            evaluation_method=simple_result.get("evaluation_method", "simple_test"),
+            processing_time=0.0,
+            timestamp=datetime.now(timezone.utc).isoformat()
+        )
+        
+    except Exception as e:
+        print(f"❌ TEST: Error in test categorization: {e}")
+        import traceback
+        traceback.print_exc()
+        return AgentCategorizationResponse(
+            agent_id=request.agent_id,
+            primary_category=CategoryResult(
+                category_type="unknown",
+                confidence=0.0,
+                keywords_matched=[],
+                reasoning=f"Test error: {e}"
+            ),
+            secondary_categories=[],
+            extracted_features=None,
+            crypto_details=None,
+            is_unknown_category=True,
+            evaluation_method="test_error",
+            processing_time=0.0,
+            timestamp=datetime.now(timezone.utc).isoformat()
+        )
+
 @crypto_detection_agent.on_rest_get("/get-taxonomy", TaxonomyResponse)
 async def get_taxonomy_endpoint(ctx: Context) -> TaxonomyResponse:
     """Get category taxonomy information"""
