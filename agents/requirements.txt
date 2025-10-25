@@ -2,8 +2,8 @@
 # Core uAgents framework
 uagents==0.22.5
 
-# meTTa framework for symbolic reasoning (optional)
-metta>=0.1.0
+# meTTa framework for symbolic reasoning (hyperon package)
+hyperon>=0.2.0
 
 # Data validation and environment
 pydantic>=2.0.0
@@ -11,6 +11,9 @@ python-dotenv>=1.0.0
 
 # HTTP client for AgentVerse API requests
 httpx>=0.24.0
+
+# Web server for Railway
+uvicorn>=0.24.0
 
 # Development and testing
 pytest>=7.0.0

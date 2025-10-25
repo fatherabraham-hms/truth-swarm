@@ -49,12 +49,22 @@ except ImportError:
 # AGENT CONFIGURATION
 # ============================================================================
 
+# Get deployment environment
+railway_url = os.getenv("RAILWAY_PUBLIC_DOMAIN")
+agent_port = int(os.getenv("PORT", 8000))
+agent_name = os.getenv("AGENT_NAME", "truth_swarm_categorizer_agent")
+
+if railway_url:
+    endpoint_url = f"https://{railway_url}/submit"
+else:
+    endpoint_url = "http://localhost:8000/submit"
+
 # Initialize the crypto detection agent
 crypto_detection_agent = Agent(
-    name="crypto_detection_agent",
+    name=agent_name,
     seed="crypto_detection_seed_2024_truth_swarm",
-    port=8000,
-    endpoint=["http://localhost:8000/submit"],
+    port=agent_port,
+    endpoint=[endpoint_url],
     mailbox=True  # Enable mailbox for Agentverse integration
 )
 
@@ -314,8 +324,8 @@ async def startup(ctx: Context):
     """Handle agent startup"""
     ctx.logger.info("🚀 Crypto Detection Agent started successfully!")
     ctx.logger.info(f"📍 Agent address: {crypto_detection_agent.address}")
-    ctx.logger.info(f"🔧 Port: 8000")
-    ctx.logger.info(f"🌐 Endpoint: http://localhost:8000")
+    ctx.logger.info(f"🔧 Port: {agent_port}")
+    ctx.logger.info(f"🌐 Endpoint: {endpoint_url}")
     ctx.logger.info(f"🛠️ Capabilities: {', '.join(AGENT_CAPABILITIES)}")
     
     # Show meTTa status

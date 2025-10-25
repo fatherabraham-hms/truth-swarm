@@ -30,11 +30,15 @@ from uagents import Agent
 def get_agent_info() -> Dict[str, Any]:
     """Get agent information for registration"""
     
+    # Get configuration from environment variables
+    agent_name = os.getenv("AGENT_NAME", "truth_swarm_categorizer_agent")
+    agent_port = int(os.getenv("AGENT_PORT", 8000))
+    
     # Create a temporary agent instance to get the address
     temp_agent = Agent(
-        name="crypto_detection_agent",
+        name=agent_name,
         seed="crypto_detection_seed_2024_truth_swarm",
-        port=8000,
+        port=agent_port,
         endpoint=["http://localhost:8000/submit"],
         mailbox=False
     )
@@ -85,7 +89,7 @@ curl -X POST http://localhost:8000/detect-crypto \
 """
     
     return {
-        "name": "Crypto Detection Agent",
+        "name": agent_name.replace("_", " ").title(),
         "description": "Detects cryptocurrency-related agents using meTTa framework and AgentVerse integration",
         "agent_address": str(temp_agent.address),
         "endpoint": "http://localhost:8000/submit",
@@ -179,11 +183,9 @@ async def main():
     await check_existing_agents()
     print()
     
-    # Confirm registration
-    confirm = input("Do you want to register the crypto detection agent? (y/N): ").strip().lower()
-    if confirm not in ['y', 'yes']:
-        print("Registration cancelled")
-        return
+    # Auto-confirm for automated deployment
+    confirm = 'y'
+    print("✅ Auto-confirming registration for deployment")
     
     # Register the agent
     success = await register_with_agentverse()
