@@ -850,6 +850,51 @@ async def extract_features_endpoint(ctx: Context, request: FeatureExtractionRequ
         )
 
 
+@crypto_detection_agent.on_rest_post("/minimal-test", AgentCategorizationRequest, AgentCategorizationResponse)
+async def minimal_test_endpoint(ctx: Context, request: AgentCategorizationRequest) -> AgentCategorizationResponse:
+    """Minimal test endpoint that bypasses all complex logic"""
+    print(f"🧪 MINIMAL: Starting minimal test for {request.agent_id}")
+    
+    try:
+        # Return a simple hardcoded response
+        return AgentCategorizationResponse(
+            agent_id=request.agent_id,
+            primary_category=CategoryResult(
+                category_type="crypto",
+                confidence=0.8,
+                keywords_matched=["test", "crypto"],
+                reasoning="Minimal test response"
+            ),
+            secondary_categories=[],
+            extracted_features=None,
+            crypto_details=None,
+            is_unknown_category=False,
+            evaluation_method="minimal_test",
+            processing_time=0.0,
+            timestamp=datetime.now(timezone.utc).isoformat()
+        )
+        
+    except Exception as e:
+        print(f"❌ MINIMAL: Error in minimal test: {e}")
+        import traceback
+        traceback.print_exc()
+        return AgentCategorizationResponse(
+            agent_id=request.agent_id,
+            primary_category=CategoryResult(
+                category_type="unknown",
+                confidence=0.0,
+                keywords_matched=[],
+                reasoning=f"Minimal test error: {e}"
+            ),
+            secondary_categories=[],
+            extracted_features=None,
+            crypto_details=None,
+            is_unknown_category=True,
+            evaluation_method="minimal_error",
+            processing_time=0.0,
+            timestamp=datetime.now(timezone.utc).isoformat()
+        )
+
 @crypto_detection_agent.on_rest_post("/test-categorization", AgentCategorizationRequest, AgentCategorizationResponse)
 async def test_categorization_endpoint(ctx: Context, request: AgentCategorizationRequest) -> AgentCategorizationResponse:
     """Simple test endpoint for categorization debugging"""
