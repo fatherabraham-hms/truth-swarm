@@ -734,15 +734,21 @@ async def categorize_agent_endpoint(ctx: Context, request: AgentCategorizationRe
     ctx.logger.info(f"📨 REST agent categorization request for: {request.agent_id}")
     
     try:
+        print(f"🔍 REST endpoint: Starting categorization for {request.agent_id}")
+        
         # Read agent profile from AgentVerse
         start_time = time.time()
+        print(f"🔍 REST endpoint: Reading agent profile...")
         agent_profile = await read_agent_profile(request.agent_id)
         profile_time = time.time() - start_time
+        print(f"🔍 REST endpoint: Agent profile read in {profile_time:.2f}s")
         
         # Categorize agent
         eval_start_time = time.time()
+        print(f"🔍 REST endpoint: Calling categorize_agent...")
         categorization_result = await categorize_agent(agent_profile)
         eval_time = time.time() - eval_start_time
+        print(f"🔍 REST endpoint: Categorization completed in {eval_time:.2f}s")
         
         # Extract features if requested
         features = None
@@ -767,6 +773,9 @@ async def categorize_agent_endpoint(ctx: Context, request: AgentCategorizationRe
         )
         
     except Exception as e:
+        print(f"❌ REST endpoint: Categorization failed: {e}")
+        import traceback
+        traceback.print_exc()
         ctx.logger.error(f"❌ REST agent categorization failed: {e}")
         # Return a fallback response
         return AgentCategorizationResponse(
