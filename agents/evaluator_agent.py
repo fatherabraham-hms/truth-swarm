@@ -72,7 +72,8 @@ class EvaluationScore:
 class AttestationManager:
     """Manages EAS attestations for agent evaluations"""
     
-    AGENT_EVALUATION_SCHEMA_UID = "0xcd0ab40423e8919b72b665cb563c82b895acc2b690626f2c8180e1db83f6f5bc"
+    #AGENT_EVALUATION_SCHEMA_UID = "0xcd0ab40423e8919b72b665cb563c82b895acc2b690626f2c8180e1db83f6f5bc"
+    AGENT_EVALUATION_SCHEMA_UID = "0xba70975168bf5ec3052382a30dcadf24dc26085cea4c33b7964480ca28a40695"
     
     def __init__(self):
         # Load configuration from environment
