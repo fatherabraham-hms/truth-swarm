@@ -2,7 +2,6 @@
 
 import { AgentVerseInfo } from "@/types/agents";
 
-// Types for chat interaction
 export interface ChatMessage {
   role: "user" | "agent";
   content: string;
@@ -15,20 +14,14 @@ export interface AgentChatSession {
   messages: ChatMessage[];
 }
 
-// Url defintions
 
-const agentInfoUrl = `https://agentverse.ai/v1/search/agents`;
+const AGENTVERSE_AGENT_INFO_URL = `https://agentverse.ai/v1/search/agents`;
 
-/**
- * Fetch agent information from Agentverse API
- * @param address - The agent address to fetch
- * @returns AgentVerseInfo or null if not found
- */
 export async function fetchAgentverseInfo(
   address: string
 ): Promise<AgentVerseInfo | null> {
   try {
-    const response = await fetch(`${agentInfoUrl}/${address}`, {
+    const response = await fetch(`${AGENTVERSE_AGENT_INFO_URL}/${address}`, {
       next: { revalidate: 3600 }, // Cache for 1 hour
     });
 
@@ -55,17 +48,11 @@ export async function fetchAgentverseInfo(
   }
 }
 
-/**
- * Fetch multiple agent information from Agentverse API
- * @param addresses - Array of agent addresses to fetch
- * @returns Map of address to AgentVerseInfo
- */
 export async function fetchMultipleAgentverseInfo(
   addresses: string[]
 ): Promise<Map<string, AgentVerseInfo>> {
   const results = new Map<string, AgentVerseInfo>();
 
-  // Fetch all agents in parallel
   const promises = addresses.map(async (address) => {
     const info = await fetchAgentverseInfo(address);
     if (info) {
@@ -78,28 +65,25 @@ export async function fetchMultipleAgentverseInfo(
   return results;
 }
 
-/**
- * Send a message to an agent and get a response
- * This uses the Agentverse webhook/endpoint for the agent
- * @param agentAddress - The agent's address
- * @param message - The message to send
- * @param sessionId - Optional session ID for continuity
- * @returns The agent's response
- */
 export async function sendMessageToAgent(
-  agentAddress: string,
   message: string,
   sessionId?: string
 ): Promise<{ response: string; sessionId: string }> {
   try {
-    const evaluatorUrl =
-      process.env.NEXT_PUBLIC_EVALUATOR_AGENT_URL || "http://localhost:8000";
+    // process.env.EVALUATOR_AGENT_ADDRESS
+    const agentAddress = "agent1qtak6m7rgytst3zqmu744t0k8z4xytf3zrnct49efqvwxzqc3f3t5rkflj4";
+    const agentverseApiKey = process.env.AGENTVERSE_API_KEY;
+    
+    if (!agentverseApiKey) {
+      throw new Error("AGENTVERSE_API_KEY environment variable is required");
+    }
 
-    // Send message to agent's chat endpoint (with ASI:1 integration)
-    const response = await fetch(`${evaluatorUrl}/chat`, {
+    // Use Agentverse messaging API
+    const response = await fetch(`https://agentverse.ai/v1/agents/${agentAddress}/message`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
+        "Authorization": `Bearer ${agentverseApiKey}`,
       },
       body: JSON.stringify({
         message: message,
@@ -124,9 +108,10 @@ export async function sendMessageToAgent(
     console.error(`Failed to communicate with evaluator:`, error);
 
     return {
-      response: `❌ Could not connect to the evaluator agent. Make sure it's running at ${
-        process.env.NEXT_PUBLIC_EVALUATOR_AGENT_URL || "http://localhost:8000"
-      }
+      response: `❌ Could not connect to the Agentverse agent. Make sure:
+1. Your AGENTVERSE_API_KEY is set correctly
+2. The agent is deployed and running on Agentverse
+3. The agent address is correct: agent1qtak6m7rgytst3zqmu744t0k8z4xytf3zrnct49efqvwxzqc3f3t5rkflj4
 
 Error: ${error instanceof Error ? error.message : "Unknown error"}`,
       sessionId: sessionId || generateSessionId(),
@@ -136,46 +121,4 @@ Error: ${error instanceof Error ? error.message : "Unknown error"}`,
 
 function generateSessionId(): string {
   return `session_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
-}
-
-export async function getSampleAgentAddress(): Promise<string> {
-  return "agent1qw254tc8q3mcmrseem0pmhu2jd0j7urn2e9cd5tgcg88kmy9wkqhysksdwf";
-}
-
-/**
- * Test connection to the local evaluator agent
- * Useful for debugging connectivity issues
- */
-export async function testAgentConnection(): Promise<{
-  connected: boolean;
-  agentAddress?: string;
-  error?: string;
-}> {
-  try {
-    const evaluatorUrl =
-      process.env.NEXT_PUBLIC_EVALUATOR_AGENT_URL || "http://localhost:8000";
-
-    const response = await fetch(evaluatorUrl, {
-      method: "GET",
-      cache: "no-store",
-    });
-
-    if (response.ok) {
-      return {
-        connected: true,
-        agentAddress: process.env.NEXT_PUBLIC_EVALUATOR_AGENT_ADDRESS,
-      };
-    }
-
-    return {
-      connected: false,
-      error: `Agent responded with status: ${response.status}`,
-    };
-  } catch (error) {
-    return {
-      connected: false,
-      error:
-        error instanceof Error ? error.message : "Unknown connection error",
-    };
-  }
 }

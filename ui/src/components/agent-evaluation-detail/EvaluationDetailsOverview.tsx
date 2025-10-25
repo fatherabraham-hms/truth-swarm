@@ -4,23 +4,24 @@ import { useState } from "react";
 import { ChevronDown, ChevronUp, ExternalLink } from "lucide-react";
 import {
   useEvaluationDetails,
-  EvaluationMetric,
+  EvaluationScoreWithDetails,
+  MetricDetail
 } from "@/hooks/useEvaluationDetails";
-import { HumanAttestationDialog } from "./HumanAttestationDialog";
+import { HumanAttestationDialog } from "./HCAConfirmationDialog";
 
-interface EvaluationDetailsCardProps {
+interface EvaluationDetailsOverviewProps {
   detailsCID: string;
   attestationUID: string;
   agentName: string;
   onVerificationSuccess?: () => void;
 }
 
-export function EvaluationDetailsCard({
+export function EvaluationDetailsOverview({
   detailsCID,
   attestationUID,
   agentName,
   onVerificationSuccess,
-}: EvaluationDetailsCardProps) {
+}: EvaluationDetailsOverviewProps) {
   const [isExpanded, setIsExpanded] = useState(true);
   const { data: details, isLoading } = useEvaluationDetails(detailsCID);
 
@@ -36,7 +37,7 @@ export function EvaluationDetailsCard({
     metric,
   }: {
     name: string;
-    metric: EvaluationMetric;
+    metric: MetricDetail;
   }) => (
     <div className="space-y-3 p-4 bg-card rounded-lg border border-border">
       <div className="flex justify-between items-start">
@@ -161,7 +162,7 @@ export function EvaluationDetailsCard({
               <div className="text-xs text-muted-foreground space-y-1 pb-2 border-b border-border">
                 <div>
                   <span>Evaluator:</span>
-                  <span className="ml-2 font-mono">{details.evaluator}</span>
+                  <span className="ml-2 font-mono">{details.evaluatorAgentAddress}</span>
                 </div>
                 <div>
                   <span>Evaluated:</span>

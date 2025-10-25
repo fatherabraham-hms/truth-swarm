@@ -1,6 +1,6 @@
 import { Header } from "@/components/elements/Header";
 import { MaxWidthWrapper } from "@/components/elements/MaxWidthWrapper";
-import { HumanAttestationDetail } from "@/components/attestations/HumanAttestationDetail";
+import { HumanConfirmationDetail } from "@/components/human-confirmation-detail/HumanConfirmationDetail";
 
 interface PageProps {
   params: Promise<{ uid: string }>;
@@ -14,7 +14,7 @@ export default async function AttestationDetailPage({ params }: PageProps) {
       <Header />
       <MaxWidthWrapper>
         <div className="min-h-screen">
-          <HumanAttestationDetail uid={uid} />
+          <HumanConfirmationDetail uid={uid} />
         </div>
       </MaxWidthWrapper>
     </>

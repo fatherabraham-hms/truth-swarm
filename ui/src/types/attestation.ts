@@ -5,21 +5,17 @@ export interface Attestation {
   revoked: boolean;
   revocationTime: number;
   expirationTime: number;
-  data: unknown;
+  data?: string;
 }
 
-// Attestation signable by agent
-export interface AgentAttestation {
-  uid: string;
-  attester: string;
-  recipient: string;
-  revoked: boolean;
-  revocationTime: number;
-  expirationTime: number;
+export interface AgentEvaluationAttestation extends Attestation {
   evaluationScore: EvaluationScore;
 }
 
-// Agent attestation schema (eval score) typescript interface
+export interface HumanConfirmationAttestation extends Attestation {
+  humanConfirmation: HumanConfirmation;
+}
+
 export interface EvaluationScore {
   evaluatedAgentAddress: string;
   evaluatorAgentAddress: string;
@@ -42,18 +38,6 @@ export interface EvaluationScore {
   detailsCID: string;
 }
 
-// Attestation signable by human (EOA)
-export interface HumanAttestation {
-  uid: string;
-  attester: string;
-  recipient: string;
-  revoked: boolean;
-  revocationTime: number;
-  expirationTime: number;
-  humanConfirmation: HumanConfirmation;
-}
-
-// Human attestation schema (human confirmation) typescript interface
 export interface HumanConfirmation {
   originalAttestationUID: string;
   verifier: string;

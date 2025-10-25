@@ -48,7 +48,7 @@ export function AgentList({ filteredAgentsList, tabValue }: AgentsListProps) {
       <div className="space-y-2">
         {filteredAgentsList.length === 0 ? (
           <div className="text-center py-8 text-muted-foreground">
-            No agents found for this tab
+            No agent evaluations found for this tab
           </div>
         ) : (
           filteredAgentsList.map((agent, index) => (

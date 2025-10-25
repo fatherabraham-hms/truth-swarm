@@ -14,19 +14,19 @@ import {
   User,
   ExternalLink,
 } from "lucide-react";
-import { HumanAttestation, AgentAttestation } from "@/types/attestation";
+import { AgentEvaluationAttestation, HumanConfirmationAttestation } from "@/types/attestation";
 
-interface HumanAttestationDetailProps {
+interface HumanConfirmationDetailProps {
   uid: string;
 }
 
-export function HumanAttestationDetail({ uid }: HumanAttestationDetailProps) {
+export function HumanConfirmationDetail({ uid }: HumanConfirmationDetailProps) {
   const humanAttestationsQuery = useHumanAttestations();
   const agentAttestationsQuery = useAgentAttestations();
 
-  const [attestation, setAttestation] = useState<HumanAttestation | null>(null);
+  const [attestation, setAttestation] = useState<HumanConfirmationAttestation | null>(null);
   const [originalAttestation, setOriginalAttestation] =
-    useState<AgentAttestation | null>(null);
+    useState<AgentEvaluationAttestation | null>(null);
 
   useEffect(() => {
     if (humanAttestationsQuery.data) {

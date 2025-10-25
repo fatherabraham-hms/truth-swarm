@@ -1,6 +1,7 @@
-import { AgentScorePieChart } from "@/components/landing/AgentScorePieChart";
+import { AgentScorePieChart } from "@/components/landing/dashboard/AgentScorePieChart";
 import { Agent } from "@/types/agents";
 import Link from "next/link";
+import Image from "next/image";
 
 interface EvaluatedAgentListItemProps {
   agent: Agent;
@@ -24,14 +25,20 @@ export function AgentListItem({ agent }: EvaluatedAgentListItemProps) {
       <div className="flex items-center space-x-6">
         <div className="flex items-center justify-center w-8 h-8 bg-muted rounded-full">
           <span className="text-sm font-medium text-muted-foreground">
-            <img src={agent.avatarHref} alt="agent avatar" />
+            <Image 
+              src={agent.avatarHref} 
+              alt="agent avatar" 
+              width={32}
+              height={32}
+              className="rounded-full"
+            />
             {/** # -> First letter if no image */}
           </span>
         </div>
 
         <div className="flex flex-col">
           <Link
-            href={`/agents/${agent.evaluatedAgentAddress}`}
+            href={`/agent-evaluation-detail/${agent.evaluatedAgentAddress}`}
             className="font-medium text-foreground hover:text-blue-600 transition-colors hover:underline"
           >
             {agent.agentName}

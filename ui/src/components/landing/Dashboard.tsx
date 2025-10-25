@@ -10,7 +10,10 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { AgentList } from "./AgentList";
+import { Button } from "@/components/ui/button";
+import { History, Eye } from "lucide-react";
+import { AgentList } from "./dashboard/AgentList";
+import { AttestationWatcher } from "./dashboard/AttestationWatcher";
 import { useAgents } from "@/hooks/useAgents";
 import {
   useAgentAttestations,
@@ -21,7 +24,6 @@ export function Dashboard() {
   const agentAttestationsQuery = useAgentAttestations();
   const humanAttestationsQuery = useHumanAttestations();
 
-  // Use stable empty arrays to prevent infinite re-renders
   const agentAttestations = useMemo(
     () => agentAttestationsQuery.data || [],
     [agentAttestationsQuery.data]
@@ -36,6 +38,8 @@ export function Dashboard() {
     isLoading: isLoadingAgents,
     error: agentsError,
   } = useAgents(agentAttestations, humanAttestations);
+
+
 
   if (
     agentAttestationsQuery.isLoading ||
@@ -65,7 +69,6 @@ export function Dashboard() {
     );
   }
 
-  // Check if we have data
   if (!agentAttestationsQuery.data || !humanAttestationsQuery.data) {
     return (
       <div className="px-10 py-8">
@@ -85,27 +88,36 @@ export function Dashboard() {
     agents.filter((agent) => agent.finalScore > 0);
 
   return (
-    <div className="px-10 mx-auto">
-      {/** Search & Filter */}
-      <h2 className="text-xl text-foreground mb-4 ">Evaluated Agents</h2>
+    <>
+      {/* Blockscout SDK: Real-time attestation event monitoring with toast notifications */}
+      <AttestationWatcher />
+      
+      <div className="px-10 mx-auto">
+        {/** Header with Blockscout Transaction History */}
+        <div className="flex justify-between items-center mb-4">
+          <h2 className="text-xl text-foreground">Evaluated Agents</h2>
+          
 
-      <div className="grid grid-cols-12 mb-4">
-        <div className="col-span-8">
-          <Input placeholder="Search evaluated agents" />
         </div>
-        <div className="col-span-4 flex justify-start pl-4 space-x-2">
-          <span className="mt-1.5">filter</span>
-          <Select>
-            <SelectTrigger className="w-[180px]">
-              <SelectValue placeholder="Agent Type" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="light">DeFi</SelectItem>
-              <SelectItem value="dark">Weather</SelectItem>
-            </SelectContent>
-          </Select>
+
+        {/** Search & Filter */}
+        <div className="grid grid-cols-12 mb-4">
+          <div className="col-span-8">
+            <Input placeholder="Search evaluated agents" />
+          </div>
+          <div className="col-span-4 flex justify-start pl-4 space-x-2">
+            <span className="mt-1.5">filter</span>
+            <Select>
+              <SelectTrigger className="w-[180px]">
+                <SelectValue placeholder="Agent Type" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="light">DeFi</SelectItem>
+                <SelectItem value="dark">Weather</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
         </div>
-      </div>
 
       {/** Agents List with metrics */}
       <div>
@@ -132,6 +144,7 @@ export function Dashboard() {
           </TabsContent>
         </Tabs>
       </div>
-    </div>
+      </div>
+    </>
   );
 }

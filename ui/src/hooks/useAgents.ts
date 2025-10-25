@@ -1,19 +1,13 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { AgentAttestation, HumanAttestation } from "@/types/attestation";
+import { AgentEvaluationAttestation, HumanConfirmationAttestation } from "@/types/attestation";
 import { Agent } from "@/types/agents";
 import { fetchMultipleAgentverseInfo } from "@/actions/agentverse";
 
-/**
- * Hook to build Agent objects from attestations
- * @param agentAttestations - Agent attestations from blockchain
- * @param humanAttestations - Human attestations from blockchain
- * @returns Array of Agent objects with verification status
- */
 export function useAgents(
-  agentAttestations: AgentAttestation[],
-  humanAttestations: HumanAttestation[]
+  agentAttestations: AgentEvaluationAttestation[],
+  humanAttestations: HumanConfirmationAttestation[]
 ): {
   agents: Agent[];
   isLoading: boolean;
@@ -29,25 +23,21 @@ export function useAgents(
         setIsLoading(true);
         setError(null);
 
-        // If no attestations, return empty array
         if (agentAttestations.length === 0) {
           setAgents([]);
           setIsLoading(false);
           return;
         }
 
-        // Extract unique agent addresses from attestations
         const uniqueAddresses = new Set<string>();
         agentAttestations.forEach((att) => {
           uniqueAddresses.add(att.evaluationScore.evaluatedAgentAddress);
         });
 
-        // Fetch agentverse info for all addresses
         const agentverseInfoMap = await fetchMultipleAgentverseInfo(
           Array.from(uniqueAddresses)
         );
 
-        // Count human verifications per attestation UID
         const humanVerificationCounts = new Map<string, number>();
         humanAttestations.forEach((humanAtt) => {
           if (humanAtt.humanConfirmation.approved) {
@@ -59,14 +49,12 @@ export function useAgents(
           }
         });
 
-        // Build Agent objects
         const builtAgents: Agent[] = agentAttestations.map((attestation) => {
           const evalScore = attestation.evaluationScore;
           const agentverseInfo = agentverseInfoMap.get(
             evalScore.evaluatedAgentAddress
           );
 
-          // Check if this attestation has 3+ human verifications
           const humanVerifications =
             humanVerificationCounts.get(attestation.uid) || 0;
 

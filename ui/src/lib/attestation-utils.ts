@@ -2,9 +2,9 @@ import { DecodedSchemaData } from "@/types/utils";
 import { EvaluationScore, HumanConfirmation } from "@/types/attestation";
 
 // Schema definition matching scripts/src/type.ts
-export const AGENT_ATTESTATION_SCHEMA_UID = process.env.AGENT_SCHEMA_UID;
-
-//"0xcd0ab40423e8919b72b665cb563c82b895acc2b690626f2c8180e1db83f6f5bc"; // Your evaluation schema UID
+export const AGENT_ATTESTATION_SCHEMA_UID =
+  process.env.NEXT_PUBLIC_AGENT_SCHEMA_UID ||
+  "0xba70975168bf5ec3052382a30dcadf24dc26085cea4c33b7964480ca28a40695";
 export const AGENT_ATTESTATION_SCHEMA =
   "string evaluatedAgentAddress, string evaluatorAgentAddress, uint256 timestamp, uint256 finalScore, uint8 overallConfidence, string grade, uint256 correctnessScore, uint8 correctnessConfidence, uint256 correctnessEffectiveScore, uint8 correctnessWeight, uint256 capabilitiesScore, uint8 capabilitiesConfidence, uint256 capabilitiesEffectiveScore, uint8 capabilitiesWeight, uint256 domainScore, uint8 domainConfidence, uint256 domainEffectiveScore, uint8 domainWeight, string detailsCID";
 

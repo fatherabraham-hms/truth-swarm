@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   Dialog,
   DialogContent,
@@ -24,6 +24,9 @@ import {
   HUMAN_ATTESTATION_SCHEMA_UID,
 } from "@/lib/constants";
 import { CheckCircle2, XCircle, Loader2, Shield } from "lucide-react";
+import { useNotification } from "@blockscout/app-sdk";
+import { SEPOLIA_CHAIN_ID, getBlockscoutTxUrl } from "@/lib/blockscout";
+import { useQueryClient } from "@tanstack/react-query";
 
 interface HumanAttestationDialogProps {
   attestationUID: string;
@@ -45,6 +48,37 @@ export function HumanAttestationDialog({
   const { isLoading: isConfirming, isSuccess } = useWaitForTransactionReceipt({
     hash,
   });
+  
+  const { openTxToast } = useNotification();
+  const queryClient = useQueryClient();
+
+  // Blockscout SDK: Show transaction toast when hash is available
+  useEffect(() => {
+    if (hash) {
+      console.log("📤 Human attestation transaction submitted:", hash);
+      openTxToast(SEPOLIA_CHAIN_ID, hash)
+        .then(() => {
+          console.log("✅ Blockscout toast displayed for human attestation");
+        })
+        .catch((err) => {
+          console.error("Failed to show Blockscout toast:", err);
+        });
+    }
+  }, [hash, openTxToast]);
+
+  // Invalidate queries when transaction is confirmed
+  useEffect(() => {
+    if (isSuccess && hash) {
+      console.log("🎉 Human attestation confirmed on-chain:", hash);
+      
+      // Delay to allow blockchain to sync with indexers
+      setTimeout(() => {
+        console.log("🔄 Refreshing attestation data after confirmation...");
+        queryClient.invalidateQueries({ queryKey: ["human-attestations"] });
+        queryClient.invalidateQueries({ queryKey: ["agent-attestations"] });
+      }, 2000);
+    }
+  }, [isSuccess, hash, queryClient]);
 
   const handleSubmit = async () => {
     if (!isConnected || !address) {
@@ -91,14 +125,17 @@ export function HumanAttestationDialog({
   };
 
   // Reset and close dialog on success
-  if (isSuccess && open) {
-    setTimeout(() => {
-      setOpen(false);
-      setComment("");
-      setApproved(true);
-      onSuccess?.();
-    }, 2000);
-  }
+  useEffect(() => {
+    if (isSuccess && open) {
+      const timer = setTimeout(() => {
+        setOpen(false);
+        setComment("");
+        setApproved(true);
+        onSuccess?.();
+      }, 2000);
+      return () => clearTimeout(timer);
+    }
+  }, [isSuccess, open, onSuccess]);
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
@@ -166,7 +203,7 @@ export function HumanAttestationDialog({
 
           {/* Comment Field */}
           <div className="space-y-2">
-            <label className="text-sm font-medium">
+            <label className="text-sm font-medium ">
               Comment <span className="text-muted-foreground">(optional)</span>
             </label>
             <Textarea
@@ -194,12 +231,12 @@ export function HumanAttestationDialog({
               </p>
               {hash && (
                 <a
-                  href={`https://sepolia.etherscan.io/tx/${hash}`}
+                  href={getBlockscoutTxUrl(hash)}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="text-xs text-blue-600 hover:underline break-all"
                 >
-                  View on Etherscan
+                  View on Blockscout
                 </a>
               )}
             </div>

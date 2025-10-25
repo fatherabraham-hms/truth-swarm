@@ -5,7 +5,6 @@ import ReactMarkdown from "react-markdown";
 import { Input } from "../ui/input";
 import {
   sendMessageToAgent,
-  getSampleAgentAddress,
 } from "@/actions/agentverse";
 import { cn } from "@/lib/utils";
 
@@ -53,12 +52,9 @@ export function ChatInteraction() {
       setIsActive(true);
     }
 
-    const agentAddress = await getSampleAgentAddress();
-
     try {
       // Send message to agent
       const { response, sessionId: newSessionId } = await sendMessageToAgent(
-        agentAddress,
         userMessage.content,
         sessionId
       );

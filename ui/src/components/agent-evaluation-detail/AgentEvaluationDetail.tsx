@@ -1,10 +1,6 @@
 "use client";
 
-import {
-  AgentAttestation,
-  EvaluationScore,
-  HumanAttestation,
-} from "@/types/attestation";
+import { AgentEvaluationAttestation } from "@/types/attestation";
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import {
@@ -13,26 +9,27 @@ import {
 } from "@/hooks/useAttestation";
 import { fetchAgentverseInfo } from "@/actions/agentverse";
 import { AgentVerseInfo } from "@/types/agents";
-import { HumanAttestationsOverview } from "./HumanAttestationsOverview";
-import { EvaluationDetailsCard } from "./EvaluationDetailsCard";
+import { HumanConfirmationsOverview } from "./HumanConfirmationsOverview";
+import { EvaluationDetailsOverview } from "./EvaluationDetailsOverview";
 
-interface AgentEvaluationOverviewProps {
+
+interface AgentEvaluationDetailProps {
   address: string;
 }
 
-export function AgentEvaluationOverview({
+export function AgentEvaluationDetail({
   address,
-}: AgentEvaluationOverviewProps) {
+}: AgentEvaluationDetailProps) {
   const agentAttestationsQuery = useAgentAttestations();
   const humanAttestationsQuery = useHumanAttestations();
 
+
   const [agentInfo, setAgentInfo] = useState<AgentVerseInfo | null>(null);
-  const [attestation, setAttestation] = useState<AgentAttestation | null>(null);
+  const [attestation, setAttestation] = useState<AgentEvaluationAttestation | null>(null);
   const [humanVerificationCount, setHumanVerificationCount] = useState(0);
   const [isLoadingAgentInfo, setIsLoadingAgentInfo] = useState(true);
 
   useEffect(() => {
-    // Find attestation for this agent address
     if (agentAttestationsQuery.data && humanAttestationsQuery.data) {
       const agentAttestation = agentAttestationsQuery.data.find(
         (att) => att.evaluationScore.evaluatedAgentAddress === address
@@ -49,12 +46,10 @@ export function AgentEvaluationOverview({
         ).length;
         setHumanVerificationCount(verifications);
 
-        // Fetch agent info from Agentverse and add wallet address from attestation
         fetchAgentverseInfo(address).then((info) => {
           if (info) {
             setAgentInfo({
               ...info,
-              walletAddress: agentAttestation.recipient, // Wallet address from attestation recipient
             });
           }
           setIsLoadingAgentInfo(false);
@@ -100,31 +95,6 @@ export function AgentEvaluationOverview({
   }
 
   const evalScore = attestation.evaluationScore;
-
-  // Create metrics array from evaluation score
-  const metrics = [
-    {
-      name: "Correctness",
-      score: evalScore.correctnessScore,
-      confidence: evalScore.correctnessConfidence,
-      effectiveScore: evalScore.correctnessEffectiveScore,
-      weight: evalScore.correctnessWeight,
-    },
-    {
-      name: "Capabilities",
-      score: evalScore.capabilitiesScore,
-      confidence: evalScore.capabilitiesConfidence,
-      effectiveScore: evalScore.capabilitiesEffectiveScore,
-      weight: evalScore.capabilitiesWeight,
-    },
-    {
-      name: "Domain",
-      score: evalScore.domainScore,
-      confidence: evalScore.domainConfidence,
-      effectiveScore: evalScore.domainEffectiveScore,
-      weight: evalScore.domainWeight,
-    },
-  ];
 
   const agentName = agentInfo?.name || "Unknown Agent";
   const isHumanVerified = humanVerificationCount >= 3;
@@ -173,18 +143,6 @@ export function AgentEvaluationOverview({
             </span>
           )}
         </div>
-
-        {agentInfo?.walletAddress && (
-          <a
-            href={`https://etherscan.io/address/${agentInfo.walletAddress}`}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="text-muted-foreground font-mono text-sm break-all hover:text-blue-600 transition-colors hover:underline"
-            title="View wallet on Etherscan"
-          >
-            {agentInfo.walletAddress}
-          </a>
-        )}
 
         {agentInfo?.description && (
           <p className="text-muted-foreground mt-2">{agentInfo.description}</p>
@@ -259,14 +217,18 @@ export function AgentEvaluationOverview({
 
       {/* Human Verifications Section */}
       {humanAttestationsQuery.data && (
-        <HumanAttestationsOverview
-          attestationUID={attestation.uid}
-          humanAttestations={humanAttestationsQuery.data}
-        />
+        <>
+          <HumanConfirmationsOverview
+            attestationUID={attestation.uid}
+            humanAttestations={humanAttestationsQuery.data}
+          />
+
+
+        </>
       )}
 
       {/* Detailed Evaluation Metrics Card */}
-      <EvaluationDetailsCard
+      <EvaluationDetailsOverview
         detailsCID={evalScore.detailsCID}
         attestationUID={attestation.uid}
         agentName={agentName}

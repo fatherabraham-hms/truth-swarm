@@ -1,6 +1,6 @@
-import { AgentEvaluationOverview } from "@/components/agents/AgentEvaluationOverview";
 import { Header } from "@/components/elements/Header";
 import { MaxWidthWrapper } from "@/components/elements/MaxWidthWrapper";
+import { AgentEvaluationDetail } from "@/components/agent-evaluation-detail/AgentEvaluationDetail";
 
 interface PageProps {
   params: Promise<{ address: string }>;
@@ -14,7 +14,7 @@ export default async function AgentDetailPage({ params }: PageProps) {
       <Header />
       <MaxWidthWrapper>
         <div className="min-h-screen">
-          <AgentEvaluationOverview address={address} />
+          <AgentEvaluationDetail address={address} />
         </div>
       </MaxWidthWrapper>
     </>

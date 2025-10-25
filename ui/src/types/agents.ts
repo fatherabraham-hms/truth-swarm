@@ -7,7 +7,6 @@ export interface AgentVerseInfo {
   rating: number;
   status: string;
   category: string;
-  walletAddress?: string; // From attestation recipient
 }
 
 export interface Agent {

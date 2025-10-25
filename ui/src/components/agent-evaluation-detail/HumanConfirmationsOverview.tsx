@@ -1,6 +1,6 @@
 "use client";
 
-import { HumanAttestation } from "@/types/attestation";
+import { HumanConfirmationAttestation } from "@/types/attestation";
 import Link from "next/link";
 import {
   CheckCircle2,
@@ -12,24 +12,27 @@ import {
   ChevronDown,
   ChevronUp,
 } from "lucide-react";
-import { Button } from "@/components/ui/button";
 import { useState } from "react";
+import { useTransactionPopup } from "@blockscout/app-sdk";
+import { useAccount } from "wagmi";
+import { SEPOLIA_CHAIN_ID } from "@/lib/blockscout";
+import { Button } from "../ui/button";
 
-interface HumanAttestationsOverviewProps {
+interface HumanConfirmationsOverviewProps {
   attestationUID: string;
-  humanAttestations: HumanAttestation[];
+  humanAttestations: HumanConfirmationAttestation[];
 }
 
 const ITEMS_PER_PAGE = 3;
 
-export function HumanAttestationsOverview({
+export function HumanConfirmationsOverview({
   attestationUID,
   humanAttestations,
-}: HumanAttestationsOverviewProps) {
+}: HumanConfirmationsOverviewProps) {
   const [currentPage, setCurrentPage] = useState(1);
   const [isExpanded, setIsExpanded] = useState(false);
 
-  // Filter attestations for this specific agent evaluation
+
   const relevantAttestations = humanAttestations.filter(
     (att) => att.humanConfirmation.originalAttestationUID === attestationUID
   );
@@ -120,7 +123,7 @@ export function HumanAttestationsOverview({
               return (
                 <Link
                   key={attestation.uid}
-                  href={`/attestations/${attestation.uid}`}
+                  href={`/human-confirmation-detail/${attestation.uid}`}
                   className="block"
                 >
                   <div className="p-4 border border-border rounded-lg bg-card hover:bg-muted/50 transition-colors cursor-pointer">
@@ -170,6 +173,7 @@ export function HumanAttestationsOverview({
                         View
                       </Button>
                     </div>
+
                   </div>
                 </Link>
               );

@@ -4,6 +4,7 @@ import "./globals.css";
 
 import QueryContext from "@/context/QueryContext";
 import WagmiContext from "@/context/WagmiContext";
+import { BlockscoutContext } from "@/context/BlockscoutContext";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -32,7 +33,11 @@ export default function RootLayout({
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
         <QueryContext>
-          <WagmiContext>{children}</WagmiContext>
+          <WagmiContext>
+            <BlockscoutContext>
+              {children}
+            </BlockscoutContext>
+          </WagmiContext>
         </QueryContext>
       </body>
     </html>
