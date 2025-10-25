@@ -68,24 +68,36 @@ class SimpleDetector(BaseDetector):
     async def categorize_agent(self, agent_profile: AgentProfileData) -> Dict[str, Any]:
         """Simple multi-category detection fallback"""
         try:
+            print(f"🔍 Simple detector: Starting categorization for {agent_profile.agent_id}")
+            
             # Get primary category
+            print("🔍 Simple detector: Getting primary category...")
             primary_category = await self.get_primary_category(agent_profile)
+            print(f"🔍 Simple detector: Primary category: {primary_category.category_type}")
             
             # Get secondary categories
+            print("🔍 Simple detector: Getting secondary categories...")
             secondary_categories = await self.get_secondary_categories(agent_profile)
+            print(f"🔍 Simple detector: Found {len(secondary_categories)} secondary categories")
             
             # Extract features
+            print("🔍 Simple detector: Extracting features...")
             features = await self.extract_features(agent_profile)
+            print(f"🔍 Simple detector: Features extracted: {len(features.tech_stack)} tech items")
             
             # Get crypto details if primary category is crypto
             crypto_details = None
             if primary_category.category_type == "crypto":
+                print("🔍 Simple detector: Getting crypto details...")
                 crypto_details = await self._get_crypto_details(agent_profile, primary_category)
+                print(f"🔍 Simple detector: Crypto details: {crypto_details}")
             
             # Check if unknown category
+            print("🔍 Simple detector: Checking if unknown category...")
             is_unknown = is_unknown_category(agent_profile.readme_content)
+            print(f"🔍 Simple detector: Is unknown: {is_unknown}")
             
-            return {
+            result = {
                 "primary_category": primary_category,
                 "secondary_categories": secondary_categories,
                 "extracted_features": features,
@@ -93,6 +105,8 @@ class SimpleDetector(BaseDetector):
                 "is_unknown_category": is_unknown,
                 "evaluation_method": "simple_keyword_matching"
             }
+            print(f"🔍 Simple detector: Categorization complete!")
+            return result
             
         except Exception as e:
             raise RuntimeError(f"Simple categorization failed: {e}")

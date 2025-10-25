@@ -423,7 +423,9 @@ async def handle_crypto_detection_request(ctx: Context, sender: str, msg: Crypto
         
         # Use comprehensive categorization instead of simple crypto detection
         eval_start_time = time.time()
+        print(f"🔍 Main handler: Calling categorize_agent for {agent_profile.agent_id}")
         categorization_result = await categorize_agent(agent_profile)
+        print(f"🔍 Main handler: categorize_agent returned: {categorization_result.get('evaluation_method', 'unknown')}")
         eval_time = time.time() - eval_start_time
         
         # Extract comprehensive features
