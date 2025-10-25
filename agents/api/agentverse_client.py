@@ -88,6 +88,7 @@ class AgentverseAPIClient:
             async with httpx.AsyncClient(timeout=30.0, follow_redirects=True) as client:
                 # Try multiple endpoint patterns
                 endpoints = [
+                    f"{self.base_url}/v1/hosting/agents/{agent_address}",  # Try hosting first
                     f"{self.base_url}/v1/agents/{agent_address}",
                     f"{self.base_url}/api/agents/{agent_address}",
                     f"{self.base_url}/agents/{agent_address}",

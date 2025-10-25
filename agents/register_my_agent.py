@@ -24,6 +24,9 @@ async def register_my_agent():
     # Your agent details (from the logs you showed)
     agent_address = "agent1q2w87lcmxs0ykma6dnklhnyd8usprv3rzc3e9umpgyf9726xtumfjtvx5a5"
     
+    print(f"🔍 Registering agent: {agent_address}")
+    print("   This will give it a proper name and README on Agentverse")
+    
     # Get Railway URL if available
     railway_url = os.getenv("RAILWAY_PUBLIC_DOMAIN")
     if railway_url:
@@ -35,7 +38,7 @@ async def register_my_agent():
     agent_info = {
         "name": "Truth Swarm Categorizer Agent",
         "description": "Advanced agent categorization and analysis using meTTa framework with comprehensive crypto detection capabilities",
-        "agent_address": agent_address,
+        "address": agent_address,  # Changed from agent_address to address
         "endpoint": endpoint_url,
         "capabilities": [
             "crypto_agent_detection",

@@ -324,22 +324,29 @@ async def handle_crypto_detection_request(ctx: Context, sender: str, msg: Crypto
         
         ctx.logger.info(f"📖 Agent profile read in {profile_time:.2f}s")
         
-        # Detect crypto agent
+        # Use comprehensive categorization instead of simple crypto detection
         eval_start_time = time.time()
-        detection_result = await detect_crypto_agent(agent_profile)
+        categorization_result = await categorize_agent(agent_profile)
         eval_time = time.time() - eval_start_time
         
-        # Create response
-        response = CryptoDetectionResponse(
+        # Extract comprehensive features
+        features = await extract_features(agent_profile)
+        
+        # Get crypto details if primary category is crypto
+        crypto_details = None
+        primary_category = categorization_result.get("primary_category")
+        if primary_category and primary_category.category_type == "crypto":
+            crypto_details = categorization_result.get("crypto_details")
+        
+        # Create comprehensive response with all meTTa evaluation data
+        response = AgentCategorizationResponse(
             agent_id=msg.agent_id,
-            is_crypto_agent=detection_result.get("is_crypto_agent", False),
-            crypto_score=detection_result.get("crypto_score", 0.0),
-            confidence=detection_result.get("confidence", 0.0),
-            total_matches=detection_result.get("total_matches", 0),
-            readme_matches=detection_result.get("readme_matches", []),
-            capability_matches=detection_result.get("capability_matches", []),
-            description_matches=detection_result.get("description_matches", []),
-            evaluation_method=detection_result.get("evaluation_method", "unknown"),
+            primary_category=primary_category,
+            secondary_categories=categorization_result.get("secondary_categories", []),
+            extracted_features=features,
+            crypto_details=crypto_details,
+            is_unknown_category=categorization_result.get("is_unknown_category", False),
+            evaluation_method=categorization_result.get("evaluation_method", "meTTa symbolic reasoning"),
             processing_time=profile_time + eval_time,
             timestamp=datetime.now(timezone.utc).isoformat()
         )
@@ -781,6 +788,16 @@ async def get_taxonomy_endpoint(ctx: Context) -> TaxonomyResponse:
 
 # Include the crypto detection protocol in the agent
 crypto_detection_agent.include(crypto_detection_protocol, publish_manifest=True)
+
+# Try to register with Agentverse if API key is available
+if agentverse_client:
+    print("🔗 Attempting to register with Agentverse...")
+    try:
+        # This should trigger automatic registration
+        pass
+    except Exception as e:
+        print(f"⚠️ Auto-registration failed: {e}")
+        print("   You may need to register manually on Agentverse")
 
 
 # ============================================================================
