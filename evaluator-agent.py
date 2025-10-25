@@ -215,50 +215,46 @@ class AttestationManager:
         """
         Minimal EAS ABI for attestation
         
-        Matches the TypeScript ABI from abis.ts line 48:
-        tuple(bytes32 schema, tuple(address recipient, uint64 expirationTime, 
-              bool revocable, bytes32 refUID, bytes data, uint256 value) data) request
+        Matches the deployed EAS contract on Sepolia (0xC2679fBD37d54388Ce493F1DB75320D236e1815e)
+        Updated to match actual contract ABI for proper event parsing
         """
         return [
             {
                 "inputs": [
                     {
-                        "name": "request", 
-                        "type": "tuple", 
                         "components": [
-                            {"name": "schema", "type": "bytes32"},
+                            {"internalType": "bytes32", "name": "schema", "type": "bytes32"},
                             {
-                                "name": "data", 
-                                "type": "tuple",
                                 "components": [
-                                    {"name": "recipient", "type": "address"},
-                                    {"name": "expirationTime", "type": "uint64"},
-                                    {"name": "revocable", "type": "bool"},
-                                    {"name": "refUID", "type": "bytes32"},
-                                    {"name": "data", "type": "bytes"},
-                                    {"name": "value", "type": "uint256"}
-                                ]
+                                    {"internalType": "address", "name": "recipient", "type": "address"},
+                                    {"internalType": "uint64", "name": "expirationTime", "type": "uint64"},
+                                    {"internalType": "bool", "name": "revocable", "type": "bool"},
+                                    {"internalType": "bytes32", "name": "refUID", "type": "bytes32"},
+                                    {"internalType": "bytes", "name": "data", "type": "bytes"},
+                                    {"internalType": "uint256", "name": "value", "type": "uint256"}
+                                ],
+                                "internalType": "struct AttestationRequestData",
+                                "name": "data",
+                                "type": "tuple"
                             }
-                        ]
+                        ],
+                        "internalType": "struct AttestationRequest",
+                        "name": "request",
+                        "type": "tuple"
                     }
                 ],
                 "name": "attest",
-                "outputs": [{"name": "", "type": "bytes32"}],
+                "outputs": [{"internalType": "bytes32", "name": "", "type": "bytes32"}],
                 "stateMutability": "payable",
                 "type": "function"
             },
             {
                 "anonymous": False,
                 "inputs": [
-                    {"indexed": True, "name": "uid", "type": "bytes32"},
-                    {"indexed": True, "name": "schema", "type": "bytes32"},
-                    {"indexed": True, "name": "attester", "type": "address"},
-                    {"indexed": False, "name": "recipient", "type": "address"},
-                    {"indexed": False, "name": "expirationTime", "type": "uint64"},
-                    {"indexed": False, "name": "revocable", "type": "bool"},
-                    {"indexed": False, "name": "refUID", "type": "bytes32"},
-                    {"indexed": False, "name": "data", "type": "bytes"},
-                    {"indexed": False, "name": "value", "type": "uint256"}
+                    {"indexed": True, "internalType": "address", "name": "recipient", "type": "address"},
+                    {"indexed": True, "internalType": "address", "name": "attester", "type": "address"},
+                    {"indexed": False, "internalType": "bytes32", "name": "uid", "type": "bytes32"},
+                    {"indexed": True, "internalType": "bytes32", "name": "schema", "type": "bytes32"}
                 ],
                 "name": "Attested",
                 "type": "event"

@@ -248,3 +248,6 @@ scripts/node_modules
 ./lib
 
 contracts/lib
+
+# Test directory
+/test/
