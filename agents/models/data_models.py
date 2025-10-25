@@ -1,7 +1,7 @@
 """Pydantic data models for the agent system"""
 
 from datetime import datetime, timezone
-from typing import Dict, Any, List, Optional
+from typing import Dict, Any, List, Optional, Union
 from uagents import Model
 
 
@@ -86,3 +86,85 @@ class AgentDiscoveryResponse(Model):
     search_term: str = ""
     capabilities_searched: List[str] = []
     agentverse_available: bool = False
+
+
+# New models for multi-category detection
+class CategoryResult(Model):
+    """Result for a single category classification"""
+    category_type: str
+    subcategory: Optional[str] = None
+    confidence: float
+    keywords_matched: List[str] = []
+    reasoning: Optional[str] = None
+
+
+class FeatureExtractionResult(Model):
+    """Result of feature extraction from agent profile"""
+    tech_stack: List[str] = []
+    supported_chains: List[str] = []
+    protocols: List[str] = []
+    key_features: List[str] = []
+    capabilities: List[str] = []
+    integrations: List[str] = []
+    target_audience: Optional[str] = None
+    business_model: Optional[str] = None
+
+
+class CryptoSubcategoryDetails(Model):
+    """Detailed information for crypto subcategories"""
+    subcategory: str
+    confidence: float
+    protocols_mentioned: List[str] = []
+    chains_supported: List[str] = []
+    features: List[str] = []
+    use_cases: List[str] = []
+
+
+class AgentCategorizationRequest(Model):
+    """Request model for comprehensive agent categorization"""
+    agent_id: str
+    include_features: bool = True
+    include_crypto_details: bool = True
+    multi_category_threshold: float = 0.4
+    timestamp: str = ""
+
+
+class AgentCategorizationResponse(Model):
+    """Response model for comprehensive agent categorization"""
+    agent_id: str
+    primary_category: CategoryResult
+    secondary_categories: List[CategoryResult] = []
+    extracted_features: Optional[FeatureExtractionResult] = None
+    crypto_details: Optional[CryptoSubcategoryDetails] = None
+    is_unknown_category: bool = False
+    evaluation_method: str
+    processing_time: float
+    timestamp: str = ""
+
+
+class FeatureExtractionRequest(Model):
+    """Request model for standalone feature extraction"""
+    agent_id: str
+    timestamp: str = ""
+
+
+class FeatureExtractionResponse(Model):
+    """Response model for feature extraction"""
+    agent_id: str
+    features: FeatureExtractionResult
+    processing_time: float
+    timestamp: str = ""
+
+
+class TaxonomyResponse(Model):
+    """Response model for category taxonomy information"""
+    primary_categories: List[Dict[str, Any]] = []
+    crypto_subcategories: List[Dict[str, Any]] = []
+    total_primary_categories: int = 0
+    total_crypto_subcategories: int = 0
+    confidence_thresholds: Dict[str, float] = {}
+
+
+# Backward compatibility aliases
+CryptoDetectionRequest = AgentCategorizationRequest
+CryptoDetectionResponse = AgentCategorizationResponse

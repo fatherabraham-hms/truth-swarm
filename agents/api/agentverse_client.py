@@ -18,15 +18,15 @@ class AgentverseAPIClient:
     async def test_connection(self) -> bool:
         """Test API connection"""
         try:
-            async with httpx.AsyncClient(timeout=10.0, follow_redirects=False) as client:
+            async with httpx.AsyncClient(timeout=10.0, follow_redirects=True) as client:
+                # Try the main API endpoint first
+                response = await client.get(f"{self.base_url}/agents", headers=self.headers)
+                
+                if response.status_code == 200:
+                    return True
+                
+                # If that fails, try the hosting endpoint
                 response = await client.get(f"{self.base_url}/hosting/agents", headers=self.headers)
-                
-                # Handle redirects
-                if response.status_code in [301, 302, 307, 308]:
-                    redirect_location = response.headers.get("location")
-                    print(f"⚠️ Redirect detected: {response.status_code} -> {redirect_location}")
-                    return False
-                
                 return response.status_code == 200
         except Exception as e:
             print(f"❌ Agentverse connection test failed: {e}")
@@ -35,14 +35,22 @@ class AgentverseAPIClient:
     async def get_agents(self) -> List[Dict[str, Any]]:
         """Get list of all agents"""
         try:
-            async with httpx.AsyncClient(timeout=30.0, follow_redirects=False) as client:
-                response = await client.get(f"{self.base_url}/hosting/agents", headers=self.headers)
+            async with httpx.AsyncClient(timeout=30.0, follow_redirects=True) as client:
+                # Try the main API endpoint first
+                response = await client.get(f"{self.base_url}/agents", headers=self.headers)
                 
-                # Handle redirects
-                if response.status_code in [301, 302, 307, 308]:
-                    redirect_location = response.headers.get("location")
-                    print(f"⚠️ Redirect detected: {response.status_code} -> {redirect_location}")
-                    return []
+                if response.status_code == 200:
+                    data = response.json()
+                    # Handle both list and dict responses
+                    if isinstance(data, list):
+                        return data
+                    elif isinstance(data, dict) and 'items' in data:
+                        return data['items']
+                    else:
+                        return []
+                
+                # If that fails, try the hosting endpoint
+                response = await client.get(f"{self.base_url}/hosting/agents", headers=self.headers)
                 
                 if response.status_code == 200:
                     data = response.json()
@@ -63,14 +71,17 @@ class AgentverseAPIClient:
     async def get_agent_details(self, agent_address: str) -> Optional[Dict[str, Any]]:
         """Get details of a specific agent"""
         try:
-            async with httpx.AsyncClient(timeout=30.0, follow_redirects=False) as client:
-                response = await client.get(f"{self.base_url}/v1/hosting/agents/{agent_address}", headers=self.headers)
+            async with httpx.AsyncClient(timeout=30.0, follow_redirects=True) as client:
+                # Try the main API endpoint first
+                response = await client.get(f"{self.base_url}/agents/{agent_address}", headers=self.headers)
                 
-                # Handle redirects
-                if response.status_code in [301, 302, 307, 308]:
-                    redirect_location = response.headers.get("location")
-                    print(f"⚠️ Redirect detected: {response.status_code} -> {redirect_location}")
+                if response.status_code == 200:
+                    return response.json()
+                elif response.status_code == 404:
                     return None
+                
+                # If that fails, try the hosting endpoint
+                response = await client.get(f"{self.base_url}/hosting/agents/{agent_address}", headers=self.headers)
                 
                 if response.status_code == 200:
                     return response.json()
@@ -86,14 +97,17 @@ class AgentverseAPIClient:
     async def get_agent_code(self, agent_address: str) -> Optional[str]:
         """Get agent code/README"""
         try:
-            async with httpx.AsyncClient(timeout=30.0, follow_redirects=False) as client:
-                response = await client.get(f"{self.base_url}/v1/hosting/agents/{agent_address}/code", headers=self.headers)
+            async with httpx.AsyncClient(timeout=30.0, follow_redirects=True) as client:
+                # Try the main API endpoint first
+                response = await client.get(f"{self.base_url}/agents/{agent_address}/code", headers=self.headers)
                 
-                # Handle redirects
-                if response.status_code in [301, 302, 307, 308]:
-                    redirect_location = response.headers.get("location")
-                    print(f"⚠️ Redirect detected: {response.status_code} -> {redirect_location}")
+                if response.status_code == 200:
+                    return response.text
+                elif response.status_code == 404:
                     return None
+                
+                # If that fails, try the hosting endpoint
+                response = await client.get(f"{self.base_url}/hosting/agents/{agent_address}/code", headers=self.headers)
                 
                 if response.status_code == 200:
                     return response.text
@@ -109,7 +123,16 @@ class AgentverseAPIClient:
     async def register_agent(self, agent_data: Dict[str, Any]) -> bool:
         """Register a new agent with Agentverse"""
         try:
-            async with httpx.AsyncClient(timeout=30.0) as client:
+            async with httpx.AsyncClient(timeout=30.0, follow_redirects=True) as client:
+                # Try the main API endpoint first
+                response = await client.post(f"{self.base_url}/agents", 
+                                          headers=self.headers, 
+                                          json=agent_data)
+                if response.status_code in [200, 201]:
+                    print(f"✅ Agent registered successfully: {response.json()}")
+                    return True
+                
+                # If that fails, try the hosting endpoint
                 response = await client.post(f"{self.base_url}/hosting/agents", 
                                           headers=self.headers, 
                                           json=agent_data)

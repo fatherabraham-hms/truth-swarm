@@ -119,7 +119,7 @@ async def register_with_agentverse():
         return False
     
     # Initialize API client with correct base URL
-    client = AgentverseAPIClient(api_key, "https://agentverse.ai/v1")
+    client = AgentverseAPIClient(api_key, "https://agentverse.ai")
     
     # Test connection first
     print("1. Testing Agentverse connection...")
@@ -159,7 +159,7 @@ async def check_existing_agents():
         print("❌ No API key found")
         return False
     
-    client = AgentverseAPIClient(api_key, "https://agentverse.ai/v1")
+    client = AgentverseAPIClient(api_key, "https://agentverse.ai")
     agents = await client.get_agents()
     
     if agents and isinstance(agents, list):

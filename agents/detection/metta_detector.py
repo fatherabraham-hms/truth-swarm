@@ -1,8 +1,8 @@
 """meTTa-based crypto agent detection logic"""
 
-from typing import Dict, Any
+from typing import Dict, Any, List
 from .base_detector import BaseDetector
-from models.data_models import AgentProfileData
+from models.data_models import AgentProfileData, CategoryResult, FeatureExtractionResult
 from utils.crypto_keywords import CRYPTO_KEYWORDS
 
 
@@ -136,6 +136,31 @@ class MeTTaDetector(BaseDetector):
                 
         except Exception as e:
             raise RuntimeError(f"meTTa crypto detection failed: {e}")
+    
+    async def categorize_agent(self, agent_profile: AgentProfileData) -> Dict[str, Any]:
+        """Categorize an agent using meTTa framework (delegates to MeTTaCategorizer)"""
+        # This is a legacy method - delegate to the new categorizer
+        from .metta_categorizer import MeTTaCategorizer
+        categorizer = MeTTaCategorizer()
+        return await categorizer.categorize_agent(agent_profile)
+    
+    async def extract_features(self, agent_profile: AgentProfileData) -> FeatureExtractionResult:
+        """Extract features using meTTa framework (delegates to MeTTaCategorizer)"""
+        from .metta_categorizer import MeTTaCategorizer
+        categorizer = MeTTaCategorizer()
+        return await categorizer.extract_features(agent_profile)
+    
+    async def get_primary_category(self, agent_profile: AgentProfileData) -> CategoryResult:
+        """Get primary category using meTTa framework (delegates to MeTTaCategorizer)"""
+        from .metta_categorizer import MeTTaCategorizer
+        categorizer = MeTTaCategorizer()
+        return await categorizer.get_primary_category(agent_profile)
+    
+    async def get_secondary_categories(self, agent_profile: AgentProfileData, threshold: float = 0.4) -> List[CategoryResult]:
+        """Get secondary categories using meTTa framework (delegates to MeTTaCategorizer)"""
+        from .metta_categorizer import MeTTaCategorizer
+        categorizer = MeTTaCategorizer()
+        return await categorizer.get_secondary_categories(agent_profile, threshold)
     
     def is_available(self) -> bool:
         """Check if meTTa framework is available"""

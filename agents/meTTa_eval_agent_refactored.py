@@ -28,12 +28,20 @@ except ImportError:
 # Import modular components
 from models.data_models import (
     AgentProfileData, CryptoDetectionRequest, CryptoDetectionResponse,
-    ErrorResponse, HealthResponse, AgentListRequest, AgentListResponse,
+    AgentCategorizationRequest, AgentCategorizationResponse,
+    FeatureExtractionRequest, FeatureExtractionResponse,
+    FeatureExtractionResult, CategoryResult, TaxonomyResponse, 
+    ErrorResponse, HealthResponse, AgentListRequest, AgentListResponse, 
     AgentDiscoveryRequest, AgentDiscoveryResponse
 )
 from detection.metta_detector import MeTTaDetector
+from detection.metta_categorizer import MeTTaCategorizer
 from detection.simple_detector import SimpleDetector
 from api.agentverse_client import AgentverseAPIClient
+from utils.category_taxonomy import (
+    PRIMARY_CATEGORIES, CRYPTO_SUBCATEGORIES,
+    PRIMARY_CATEGORY_THRESHOLD, SECONDARY_CATEGORY_THRESHOLD
+)
 
 # Try to import meTTa framework (Hyperon)
 try:
@@ -70,6 +78,7 @@ crypto_detection_agent = Agent(
 
 # Initialize detection components
 metta_detector = MeTTaDetector() if METTA_AVAILABLE else None
+metta_categorizer = MeTTaCategorizer() if METTA_AVAILABLE else None
 simple_detector = SimpleDetector()
 
 # Initialize AgentVerse API client
@@ -89,7 +98,10 @@ else:
 
 # Agent capabilities
 AGENT_CAPABILITIES = [
-    "crypto_agent_detection",
+    "multi_category_detection",
+    "crypto_agent_detection", 
+    "agent_categorization",
+    "feature_extraction",
     "agent_profile_reading",
     "agentverse_integration"
 ]
@@ -112,6 +124,36 @@ async def detect_crypto_agent(agent_profile: AgentProfileData) -> Dict[str, Any]
             return await simple_detector.detect_crypto_agent(agent_profile)
     else:
         return await simple_detector.detect_crypto_agent(agent_profile)
+
+
+async def categorize_agent(agent_profile: AgentProfileData) -> Dict[str, Any]:
+    """
+    Categorize an agent into primary and secondary categories using meTTa framework.
+    Falls back to simple detection if meTTa is not available.
+    """
+    if metta_categorizer and metta_categorizer.is_available():
+        try:
+            return await metta_categorizer.categorize_agent(agent_profile)
+        except Exception as e:
+            print(f"❌ meTTa categorization failed, falling back to simple: {e}")
+            return await simple_detector.categorize_agent(agent_profile)
+    else:
+        return await simple_detector.categorize_agent(agent_profile)
+
+
+async def extract_features(agent_profile: AgentProfileData) -> FeatureExtractionResult:
+    """
+    Extract features from agent profile using meTTa framework.
+    Falls back to simple extraction if meTTa is not available.
+    """
+    if metta_categorizer and metta_categorizer.is_available():
+        try:
+            return await metta_categorizer.extract_features(agent_profile)
+        except Exception as e:
+            print(f"❌ meTTa feature extraction failed, falling back to simple: {e}")
+            return await simple_detector.extract_features(agent_profile)
+    else:
+        return await simple_detector.extract_features(agent_profile)
 
 
 async def read_agent_profile(agent_id: str) -> AgentProfileData:
@@ -331,8 +373,9 @@ async def startup(ctx: Context):
     # Show meTTa status
     ctx.logger.info("🧠 meTTa Framework Status:")
     ctx.logger.info(f"   Available: {METTA_AVAILABLE}")
-    ctx.logger.info(f"   Detector: {'Available' if metta_detector and metta_detector.is_available() else 'Not Available'}")
-    ctx.logger.info(f"   Detection method: {'meTTa' if metta_detector and metta_detector.is_available() else 'fallback'}")
+    ctx.logger.info(f"   Crypto Detector: {'Available' if metta_detector and metta_detector.is_available() else 'Not Available'}")
+    ctx.logger.info(f"   Categorizer: {'Available' if metta_categorizer and metta_categorizer.is_available() else 'Not Available'}")
+    ctx.logger.info(f"   Detection method: {'meTTa symbolic reasoning' if metta_categorizer and metta_categorizer.is_available() else 'simple keyword matching'}")
     
     # Show AgentVerse API status
     ctx.logger.info("🌐 AgentVerse API Status:")
@@ -574,6 +617,163 @@ async def discover_agents_endpoint(ctx: Context, request: AgentDiscoveryRequest)
 
 
 # ============================================================================
+# NEW MULTI-CATEGORY ENDPOINTS
+# ============================================================================
+
+@crypto_detection_agent.on_rest_post("/categorize-agent", AgentCategorizationRequest, AgentCategorizationResponse)
+async def categorize_agent_endpoint(ctx: Context, request: AgentCategorizationRequest) -> AgentCategorizationResponse:
+    """Comprehensive agent categorization endpoint"""
+    ctx.logger.info(f"📨 REST agent categorization request for: {request.agent_id}")
+    
+    try:
+        # Read agent profile from AgentVerse
+        start_time = time.time()
+        agent_profile = await read_agent_profile(request.agent_id)
+        profile_time = time.time() - start_time
+        
+        # Categorize agent
+        eval_start_time = time.time()
+        categorization_result = await categorize_agent(agent_profile)
+        eval_time = time.time() - eval_start_time
+        
+        # Extract features if requested
+        features = None
+        if request.include_features:
+            features = await extract_features(agent_profile)
+        
+        # Get crypto details if requested and primary category is crypto
+        crypto_details = None
+        if request.include_crypto_details and categorization_result.get("primary_category", {}).get("category_type") == "crypto":
+            crypto_details = categorization_result.get("crypto_details")
+        
+        return AgentCategorizationResponse(
+            agent_id=request.agent_id,
+            primary_category=categorization_result["primary_category"],
+            secondary_categories=categorization_result.get("secondary_categories", []),
+            extracted_features=features,
+            crypto_details=crypto_details,
+            is_unknown_category=categorization_result.get("is_unknown_category", False),
+            evaluation_method=categorization_result.get("evaluation_method", "unknown"),
+            processing_time=profile_time + eval_time,
+            timestamp=datetime.now(timezone.utc).isoformat()
+        )
+        
+    except Exception as e:
+        ctx.logger.error(f"❌ REST agent categorization failed: {e}")
+        # Return a fallback response
+        return AgentCategorizationResponse(
+            agent_id=request.agent_id,
+            primary_category=CategoryResult(
+                category_type="unknown",
+                confidence=0.0,
+                keywords_matched=[],
+                reasoning="Error during categorization"
+            ),
+            secondary_categories=[],
+            extracted_features=None,
+            crypto_details=None,
+            is_unknown_category=True,
+            evaluation_method="error_fallback",
+            processing_time=0.0,
+            timestamp=datetime.now(timezone.utc).isoformat()
+        )
+
+
+@crypto_detection_agent.on_rest_post("/extract-features", FeatureExtractionRequest, FeatureExtractionResponse)
+async def extract_features_endpoint(ctx: Context, request: FeatureExtractionRequest) -> FeatureExtractionResponse:
+    """Standalone feature extraction endpoint"""
+    ctx.logger.info(f"📨 REST feature extraction request for: {request.agent_id}")
+    
+    try:
+        # Read agent profile from AgentVerse
+        start_time = time.time()
+        agent_profile = await read_agent_profile(request.agent_id)
+        profile_time = time.time() - start_time
+        
+        # Extract features
+        eval_start_time = time.time()
+        features = await extract_features(agent_profile)
+        eval_time = time.time() - eval_start_time
+        
+        return FeatureExtractionResponse(
+            agent_id=request.agent_id,
+            features=features,
+            processing_time=profile_time + eval_time,
+            timestamp=datetime.now(timezone.utc).isoformat()
+        )
+        
+    except Exception as e:
+        ctx.logger.error(f"❌ REST feature extraction failed: {e}")
+        # Return a fallback response
+        return FeatureExtractionResponse(
+            agent_id=request.agent_id,
+            features=FeatureExtractionResult(
+                tech_stack=[],
+                supported_chains=[],
+                protocols=[],
+                key_features=[],
+                capabilities=[],
+                integrations=[],
+                target_audience="unknown",
+                business_model="unknown"
+            ),
+            processing_time=0.0,
+            timestamp=datetime.now(timezone.utc).isoformat()
+        )
+
+
+@crypto_detection_agent.on_rest_get("/get-taxonomy", TaxonomyResponse)
+async def get_taxonomy_endpoint(ctx: Context) -> TaxonomyResponse:
+    """Get category taxonomy information"""
+    ctx.logger.info("📨 REST taxonomy request")
+    
+    try:
+        # Format primary categories
+        primary_categories = []
+        for category_name, category_def in PRIMARY_CATEGORIES.items():
+            primary_categories.append({
+                "name": category_def.name,
+                "key": category_name,
+                "description": category_def.description,
+                "keyword_count": len(category_def.keywords),
+                "weight": category_def.weight
+            })
+        
+        # Format crypto subcategories
+        crypto_subcategories = []
+        for subcategory_name, subcategory_def in CRYPTO_SUBCATEGORIES.items():
+            crypto_subcategories.append({
+                "name": subcategory_def.name,
+                "key": subcategory_name,
+                "description": subcategory_def.description,
+                "keyword_count": len(subcategory_def.keywords),
+                "weight": subcategory_def.weight,
+                "parent": subcategory_def.parent
+            })
+        
+        return TaxonomyResponse(
+            primary_categories=primary_categories,
+            crypto_subcategories=crypto_subcategories,
+            total_primary_categories=len(PRIMARY_CATEGORIES),
+            total_crypto_subcategories=len(CRYPTO_SUBCATEGORIES),
+            confidence_thresholds={
+                "primary_category": PRIMARY_CATEGORY_THRESHOLD,
+                "secondary_category": SECONDARY_CATEGORY_THRESHOLD
+            }
+        )
+        
+    except Exception as e:
+        ctx.logger.error(f"❌ REST taxonomy request failed: {e}")
+        return TaxonomyResponse(
+            primary_categories=[],
+            crypto_subcategories=[],
+            total_primary_categories=0,
+            total_crypto_subcategories=0,
+            confidence_thresholds={}
+        )
+
+
+# ============================================================================
 # PROTOCOL INTEGRATION
 # ============================================================================
 
@@ -609,16 +809,32 @@ using meTTa framework symbolic reasoning and comprehensive keyword matching.
    • Profile Reading: {'Enabled' if agentverse_client else 'Disabled'}
 
 🌐 REST API endpoints:
-   • GET  /health           - Health check
-   • POST /detect-crypto    - Detect crypto agent by ID
-   • POST /list-agents      - List agents from Agentverse
-   • POST /discover-agents  - Discover agents by search/capabilities
+   • GET  /health              - Health check
+   • POST /detect-crypto       - Detect crypto agent by ID (backward compatible)
+   • POST /categorize-agent    - Comprehensive agent categorization
+   • POST /extract-features    - Standalone feature extraction
+   • GET  /get-taxonomy        - Get category taxonomy information
+   • POST /list-agents         - List agents from Agentverse
+   • POST /discover-agents     - Discover agents by search/capabilities
 
 🔗 Test commands:
    # Health check
    curl http://localhost:8000/health
    
-   # Crypto agent detection (requires AGENTVERSE_API_KEY)
+   # Comprehensive agent categorization (NEW!)
+   curl -X POST http://localhost:8000/categorize-agent \\
+        -H "Content-Type: application/json" \\
+        -d '{"agent_id": "example-agent-123", "include_features": true, "include_crypto_details": true}'
+   
+   # Feature extraction only
+   curl -X POST http://localhost:8000/extract-features \\
+        -H "Content-Type: application/json" \\
+        -d '{"agent_id": "example-agent-123"}'
+   
+   # Get category taxonomy
+   curl http://localhost:8000/get-taxonomy
+   
+   # Crypto agent detection (backward compatible)
    curl -X POST http://localhost:8000/detect-crypto \\
         -H "Content-Type: application/json" \\
         -d '{"agent_id": "example-agent-123"}'
