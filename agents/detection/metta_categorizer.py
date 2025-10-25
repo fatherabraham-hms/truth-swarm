@@ -18,9 +18,13 @@ class MeTTaCategorizer(BaseDetector):
     def __init__(self):
         """Initialize meTTa categorizer"""
         try:
-            from hyperon import GroundingSpace, S, E, G, V
+            print("🔍 Initializing meTTa categorizer...")
+            from hyperon import GroundingSpace, S, E
+            print("✅ Hyperon imports successful")
+            
             # Initialize meTTa grounding space for symbolic reasoning
             self.grounding_space = GroundingSpace()
+            print("✅ GroundingSpace created successfully")
             self.available = True
             
             # Load category taxonomy into meTTa knowledge base
@@ -28,6 +32,8 @@ class MeTTaCategorizer(BaseDetector):
             print("✅ meTTa categorizer initialized successfully")
         except (ImportError, AttributeError) as e:
             print(f"⚠️ meTTa categorizer initialization failed: {e}")
+            import traceback
+            traceback.print_exc()
             self.grounding_space = None
             self.available = False
     
@@ -37,7 +43,9 @@ class MeTTaCategorizer(BaseDetector):
             return
         
         try:
-            from hyperon import S, E, G, V
+            from hyperon import S, E
+            
+            print("🔍 Loading taxonomy into meTTa grounding space...")
             
             # Add primary categories to grounding space
             for category_name, category_def in PRIMARY_CATEGORIES.items():
@@ -49,6 +57,8 @@ class MeTTaCategorizer(BaseDetector):
                     self.grounding_space.add(S(keyword))
                     # Create relationship: keyword belongs to category
                     self.grounding_space.add(E(S("belongs-to"), S(keyword), S(category_name)))
+            
+            print(f"✅ Loaded {len(PRIMARY_CATEGORIES)} primary categories into meTTa")
             
             # Add crypto subcategories
             for subcategory_name, subcategory_def in CRYPTO_SUBCATEGORIES.items():
@@ -67,6 +77,10 @@ class MeTTaCategorizer(BaseDetector):
             
         except Exception as e:
             print(f"⚠️ Failed to load taxonomy into meTTa: {e}")
+            import traceback
+            traceback.print_exc()
+            # Don't fail completely, just disable meTTa features
+            self.available = False
     
     async def detect_crypto_agent(self, agent_profile: AgentProfileData) -> Dict[str, Any]:
         """Detect if an agent is a crypto agent (backward compatibility)"""
