@@ -399,9 +399,11 @@ async def startup(ctx: Context):
                 except Exception as e:
                     ctx.logger.warning(f"⚠️ Could not fetch agent list: {e}")
             else:
-                ctx.logger.warning("⚠️ Agentverse connection failed")
+                ctx.logger.warning("⚠️ Agentverse connection failed - will use fallback mode")
         except Exception as e:
             ctx.logger.warning(f"⚠️ Agentverse connection test failed: {e}")
+    else:
+        ctx.logger.info("ℹ️ Agentverse API not available - using fallback mode")
     
     ctx.logger.info("💡 Ready to detect crypto agents!")
 

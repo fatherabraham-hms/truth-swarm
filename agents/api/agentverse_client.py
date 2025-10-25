@@ -19,15 +19,21 @@ class AgentverseAPIClient:
         """Test API connection"""
         try:
             async with httpx.AsyncClient(timeout=10.0, follow_redirects=True) as client:
-                # Try the main API endpoint first
-                response = await client.get(f"{self.base_url}/agents", headers=self.headers)
+                # Try the v1 API endpoint first
+                response = await client.get(f"{self.base_url}/v1/agents", headers=self.headers)
                 
-                if response.status_code == 200:
+                # 405 means the endpoint exists but doesn't accept GET (which is expected)
+                if response.status_code in [200, 405]:
                     return True
                 
-                # If that fails, try the hosting endpoint
+                # Try alternative endpoints
+                response = await client.get(f"{self.base_url}/api/agents", headers=self.headers)
+                if response.status_code in [200, 405]:
+                    return True
+                
+                # Try the hosting endpoint
                 response = await client.get(f"{self.base_url}/hosting/agents", headers=self.headers)
-                return response.status_code == 200
+                return response.status_code in [200, 405]
         except Exception as e:
             print(f"❌ Agentverse connection test failed: {e}")
             return False
@@ -36,34 +42,42 @@ class AgentverseAPIClient:
         """Get list of all agents"""
         try:
             async with httpx.AsyncClient(timeout=30.0, follow_redirects=True) as client:
-                # Try the main API endpoint first
-                response = await client.get(f"{self.base_url}/agents", headers=self.headers)
+                # Try multiple endpoint patterns
+                endpoints = [
+                    f"{self.base_url}/v1/agents",
+                    f"{self.base_url}/api/agents", 
+                    f"{self.base_url}/agents",
+                    f"{self.base_url}/hosting/agents"
+                ]
                 
-                if response.status_code == 200:
-                    data = response.json()
-                    # Handle both list and dict responses
-                    if isinstance(data, list):
-                        return data
-                    elif isinstance(data, dict) and 'items' in data:
-                        return data['items']
-                    else:
-                        return []
+                for endpoint in endpoints:
+                    try:
+                        response = await client.get(endpoint, headers=self.headers)
+                        
+                        if response.status_code == 200:
+                            data = response.json()
+                            # Handle both list and dict responses
+                            if isinstance(data, list):
+                                print(f"✅ Successfully retrieved agents from {endpoint}")
+                                return data
+                            elif isinstance(data, dict) and 'items' in data:
+                                print(f"✅ Successfully retrieved agents from {endpoint}")
+                                return data['items']
+                            elif isinstance(data, dict) and 'agents' in data:
+                                print(f"✅ Successfully retrieved agents from {endpoint}")
+                                return data['agents']
+                        elif response.status_code == 405:
+                            # Method not allowed, try next endpoint
+                            continue
+                        else:
+                            print(f"⚠️ Endpoint {endpoint} returned {response.status_code}")
+                            continue
+                    except Exception as e:
+                        print(f"⚠️ Error with endpoint {endpoint}: {e}")
+                        continue
                 
-                # If that fails, try the hosting endpoint
-                response = await client.get(f"{self.base_url}/hosting/agents", headers=self.headers)
-                
-                if response.status_code == 200:
-                    data = response.json()
-                    # Handle both list and dict responses
-                    if isinstance(data, list):
-                        return data
-                    elif isinstance(data, dict) and 'items' in data:
-                        return data['items']
-                    else:
-                        return []
-                else:
-                    print(f"❌ Failed to get agents: {response.status_code} - {response.text[:200]}")
-                    return []
+                print("❌ All agent endpoints failed")
+                return []
         except Exception as e:
             print(f"❌ Error getting agents: {e}")
             return []
@@ -72,24 +86,36 @@ class AgentverseAPIClient:
         """Get details of a specific agent"""
         try:
             async with httpx.AsyncClient(timeout=30.0, follow_redirects=True) as client:
-                # Try the main API endpoint first
-                response = await client.get(f"{self.base_url}/agents/{agent_address}", headers=self.headers)
+                # Try multiple endpoint patterns
+                endpoints = [
+                    f"{self.base_url}/v1/agents/{agent_address}",
+                    f"{self.base_url}/api/agents/{agent_address}",
+                    f"{self.base_url}/agents/{agent_address}",
+                    f"{self.base_url}/hosting/agents/{agent_address}"
+                ]
                 
-                if response.status_code == 200:
-                    return response.json()
-                elif response.status_code == 404:
-                    return None
+                for endpoint in endpoints:
+                    try:
+                        response = await client.get(endpoint, headers=self.headers)
+                        
+                        if response.status_code == 200:
+                            print(f"✅ Successfully retrieved agent details from {endpoint}")
+                            return response.json()
+                        elif response.status_code == 404:
+                            print(f"⚠️ Agent not found at {endpoint}")
+                            continue
+                        elif response.status_code == 405:
+                            # Method not allowed, try next endpoint
+                            continue
+                        else:
+                            print(f"⚠️ Endpoint {endpoint} returned {response.status_code}")
+                            continue
+                    except Exception as e:
+                        print(f"⚠️ Error with endpoint {endpoint}: {e}")
+                        continue
                 
-                # If that fails, try the hosting endpoint
-                response = await client.get(f"{self.base_url}/hosting/agents/{agent_address}", headers=self.headers)
-                
-                if response.status_code == 200:
-                    return response.json()
-                elif response.status_code == 404:
-                    return None
-                else:
-                    print(f"❌ Failed to get agent details: {response.status_code} - {response.text[:200]}")
-                    return None
+                print(f"❌ All agent detail endpoints failed for {agent_address}")
+                return None
         except Exception as e:
             print(f"❌ Error getting agent details: {e}")
             return None
@@ -124,24 +150,31 @@ class AgentverseAPIClient:
         """Register a new agent with Agentverse"""
         try:
             async with httpx.AsyncClient(timeout=30.0, follow_redirects=True) as client:
-                # Try the main API endpoint first
-                response = await client.post(f"{self.base_url}/agents", 
-                                          headers=self.headers, 
-                                          json=agent_data)
-                if response.status_code in [200, 201]:
-                    print(f"✅ Agent registered successfully: {response.json()}")
-                    return True
+                # Try multiple endpoint patterns
+                endpoints = [
+                    f"{self.base_url}/v1/agents",
+                    f"{self.base_url}/api/agents",
+                    f"{self.base_url}/agents",
+                    f"{self.base_url}/hosting/agents"
+                ]
                 
-                # If that fails, try the hosting endpoint
-                response = await client.post(f"{self.base_url}/hosting/agents", 
-                                          headers=self.headers, 
-                                          json=agent_data)
-                if response.status_code in [200, 201]:
-                    print(f"✅ Agent registered successfully: {response.json()}")
-                    return True
-                else:
-                    print(f"❌ Failed to register agent: {response.status_code} - {response.text}")
-                    return False
+                for endpoint in endpoints:
+                    try:
+                        response = await client.post(endpoint, 
+                                                  headers=self.headers, 
+                                                  json=agent_data)
+                        if response.status_code in [200, 201]:
+                            print(f"✅ Agent registered successfully at {endpoint}: {response.json()}")
+                            return True
+                        else:
+                            print(f"⚠️ Registration failed at {endpoint}: {response.status_code} - {response.text[:200]}")
+                            continue
+                    except Exception as e:
+                        print(f"⚠️ Error with endpoint {endpoint}: {e}")
+                        continue
+                
+                print("❌ All registration endpoints failed")
+                return False
         except Exception as e:
             print(f"❌ Error registering agent: {e}")
             return False
