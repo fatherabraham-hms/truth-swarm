@@ -746,7 +746,12 @@ async def categorize_agent_endpoint(ctx: Context, request: AgentCategorizationRe
         # Categorize agent
         eval_start_time = time.time()
         print(f"🔍 REST endpoint: Calling categorize_agent...")
-        categorization_result = await categorize_agent(agent_profile)
+        
+        # Use simple categorization directly (like the test endpoint)
+        from detection.simple_detector import SimpleDetector
+        simple_detector = SimpleDetector()
+        categorization_result = await simple_detector.categorize_agent(agent_profile)
+        
         eval_time = time.time() - eval_start_time
         print(f"🔍 REST endpoint: Categorization completed in {eval_time:.2f}s")
         
