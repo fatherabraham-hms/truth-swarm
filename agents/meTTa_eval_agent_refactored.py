@@ -743,45 +743,43 @@ async def categorize_agent_endpoint(ctx: Context, request: AgentCategorizationRe
         profile_time = time.time() - start_time
         print(f"🔍 REST endpoint: Agent profile read in {profile_time:.2f}s")
         
-        # Categorize agent
+        # Categorize agent (using exact same code as working step test)
         eval_start_time = time.time()
-        print(f"🔍 REST endpoint: Calling categorize_agent...")
-        
-        # Use simple categorization directly (like the test endpoint)
+        print(f"🔍 REST endpoint: Testing simple detector...")
         from detection.simple_detector import SimpleDetector
         simple_detector = SimpleDetector()
         categorization_result = await simple_detector.categorize_agent(agent_profile)
+        print(f"✅ REST endpoint: Simple detector successful: {categorization_result.get('evaluation_method')}")
         
         eval_time = time.time() - eval_start_time
-        print(f"🔍 REST endpoint: Categorization completed in {eval_time:.2f}s")
         
         # Extract features if requested
         features = None
         if request.include_features:
-            print(f"🔍 REST endpoint: Extracting features...")
+            print(f"🔍 REST endpoint: Testing feature extraction...")
             features = await extract_features(agent_profile)
-            print(f"🔍 REST endpoint: Features extracted successfully")
+            print(f"✅ REST endpoint: Feature extraction successful")
         
         # Get crypto details if requested and primary category is crypto
         crypto_details = None
         if request.include_crypto_details and categorization_result.get("primary_category", {}).get("category_type") == "crypto":
-            print(f"🔍 REST endpoint: Getting crypto details...")
             crypto_details = categorization_result.get("crypto_details")
-            print(f"🔍 REST endpoint: Crypto details: {crypto_details}")
         
         print(f"🔍 REST endpoint: Building response...")
-        
-        return AgentCategorizationResponse(
+        response = AgentCategorizationResponse(
             agent_id=request.agent_id,
             primary_category=categorization_result["primary_category"],
             secondary_categories=categorization_result.get("secondary_categories", []),
             extracted_features=features,
             crypto_details=crypto_details,
             is_unknown_category=categorization_result.get("is_unknown_category", False),
-            evaluation_method=categorization_result.get("evaluation_method", "unknown"),
+            evaluation_method=categorization_result.get("evaluation_method", "simple_keyword_matching"),
             processing_time=profile_time + eval_time,
             timestamp=datetime.now(timezone.utc).isoformat()
         )
+        print(f"✅ REST endpoint: Response built successfully")
+        
+        return response
         
     except Exception as e:
         print(f"❌ REST endpoint: Categorization failed: {e}")
