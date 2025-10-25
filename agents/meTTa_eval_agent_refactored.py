@@ -758,12 +758,18 @@ async def categorize_agent_endpoint(ctx: Context, request: AgentCategorizationRe
         # Extract features if requested
         features = None
         if request.include_features:
+            print(f"🔍 REST endpoint: Extracting features...")
             features = await extract_features(agent_profile)
+            print(f"🔍 REST endpoint: Features extracted successfully")
         
         # Get crypto details if requested and primary category is crypto
         crypto_details = None
         if request.include_crypto_details and categorization_result.get("primary_category", {}).get("category_type") == "crypto":
+            print(f"🔍 REST endpoint: Getting crypto details...")
             crypto_details = categorization_result.get("crypto_details")
+            print(f"🔍 REST endpoint: Crypto details: {crypto_details}")
+        
+        print(f"🔍 REST endpoint: Building response...")
         
         return AgentCategorizationResponse(
             agent_id=request.agent_id,
