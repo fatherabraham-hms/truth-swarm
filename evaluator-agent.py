@@ -554,16 +554,22 @@ def generate_score(tested_agent_address: str, ctx: Context, eval_result) -> Eval
         final_score = correctness_effective + capabilities_effective + domain_effective
         
         # Assign grade
-        if final_score >= 90:
+        if final_score >= 95:
             grade = "A+"
-        elif final_score >= 85:
+        elif final_score >= 90:
             grade = "A"
-        elif final_score >= 80:
+        elif final_score >= 85:
             grade = "B+"
-        elif final_score >= 75:
+        elif final_score >= 80:
             grade = "B"
-        else:
+        elif final_score >= 75:
             grade = "C+"
+        elif final_score >= 70:
+            grade = "C"
+        elif final_score >= 65:
+            grade = "D+"
+        else:
+            grade = "D"
         
         ctx.logger.info(f"📊 Generated evaluation: Score={final_score}/100, Grade={grade}")
         
