@@ -61,9 +61,9 @@ class MeTTaDetector(BaseDetector):
             
             # Enhanced scoring using meTTa symbolic reasoning
             # Weight different sources differently based on their importance
-            readme_weight = 0.4  # README is most important
-            cap_weight = 0.35    # Capabilities are very important
-            desc_weight = 0.25   # Description is less important
+            readme_weight = 1  # README is most important
+            cap_weight = 0    # Capabilities are very important
+            desc_weight = 0   # Description is less important
             
             weighted_score = (readme_count * readme_weight + 
                             cap_count * cap_weight + 
@@ -73,7 +73,7 @@ class MeTTaDetector(BaseDetector):
             crypto_score = min(1.0, weighted_score / 5.0)
             
             # Determine if it's a crypto agent using meTTa reasoning
-            is_crypto_agent = crypto_score > 0.3
+            is_crypto_agent = crypto_score > 0.5
             
             # Enhanced confidence calculation using meTTa logic
             # Consider multiple factors for confidence

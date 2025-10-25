@@ -15,8 +15,13 @@ from typing import Dict, Any
 # Load environment variables
 try:
     from dotenv import load_dotenv
-    load_dotenv()
+    import os
+    # Load .env from parent directory (truth-swarm root)
+    env_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), '.env')
+    load_dotenv(env_path)
+    print(f"✅ Loaded environment variables from: {env_path}")
 except ImportError:
+    print("⚠️ python-dotenv not available, using system environment variables only")
     pass
 
 from api.agentverse_client import AgentverseAPIClient
@@ -103,7 +108,7 @@ async def register_with_agentverse():
     print("=" * 50)
     
     # Check for API key
-    api_key = os.getenv("AGENTVERSE_API_KEY", "eyJhbGciOiJSUzI1NiJ9.eyJleHAiOjE3NjM3NTkwOTAsImlhdCI6MTc2MTE2NzA5MCwiaXNzIjoiZmV0Y2guYWkiLCJqdGkiOiI4ZTNjN2UwOTNmNjBkNDdmNzMwZWRjYWUiLCJzY29wZSI6ImF2Iiwic3ViIjoiMGFhYmM1MWJmMzBhM2VkMDdlMTZiNDg4OTliZDBjMTUyOGRmY2UwNzE2MmFiMWIzIn0.HC-RF4rvuVcIYW07khIIh0ip_IBsYelI1q4qb6stPEUTeU0PgB-mv88sABJKoJP0qMH5w0aR9RYxe0maNla9YQZVfU2cxG7ArFfKKXjoq5cKKwZUd874gTH9_Vr7InMKK9EGeXp8Rwa4jcbL2ejz_lZZYWq5H6AOSp5ON1KkNh44Jfh5DnNhzaQ2rolx00UyMmysZC60JJUTyCclBpMxpecb_ZWsvAitDKFzNjiZZxIYAgLygVuMvw47Iat1oBJx-n8yoepWJdjVZYC4ktiPa9QNBZASe1f1Ku7UkfdyoWLPdmkMBS7hXXvbTxsWtuR9Rn4OmgstrkZ9neE_tUCbYQ")
+    api_key = os.getenv("AGENTVERSE_API_KEY")
     if not api_key:
         print("❌ AGENTVERSE_API_KEY not found in environment variables")
         print("   Please run: python setup_agentverse.py")
