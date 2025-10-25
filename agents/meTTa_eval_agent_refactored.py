@@ -850,6 +850,67 @@ async def extract_features_endpoint(ctx: Context, request: FeatureExtractionRequ
         )
 
 
+@crypto_detection_agent.on_rest_post("/step-test", AgentCategorizationRequest, AgentCategorizationResponse)
+async def step_test_endpoint(ctx: Context, request: AgentCategorizationRequest) -> AgentCategorizationResponse:
+    """Step-by-step test endpoint to identify failure point"""
+    print(f"🧪 STEP: Starting step test for {request.agent_id}")
+    
+    try:
+        # Step 1: Test agent profile reading
+        print("🧪 STEP 1: Testing agent profile reading...")
+        agent_profile = await read_agent_profile(request.agent_id)
+        print(f"✅ STEP 1: Agent profile read successfully: {agent_profile.agent_name}")
+        
+        # Step 2: Test simple detector
+        print("🧪 STEP 2: Testing simple detector...")
+        from detection.simple_detector import SimpleDetector
+        simple_detector = SimpleDetector()
+        categorization_result = await simple_detector.categorize_agent(agent_profile)
+        print(f"✅ STEP 2: Simple detector successful: {categorization_result.get('evaluation_method')}")
+        
+        # Step 3: Test feature extraction
+        print("🧪 STEP 3: Testing feature extraction...")
+        features = await extract_features(agent_profile)
+        print(f"✅ STEP 3: Feature extraction successful")
+        
+        # Step 4: Build response
+        print("🧪 STEP 4: Building response...")
+        response = AgentCategorizationResponse(
+            agent_id=request.agent_id,
+            primary_category=categorization_result["primary_category"],
+            secondary_categories=categorization_result.get("secondary_categories", []),
+            extracted_features=features,
+            crypto_details=categorization_result.get("crypto_details"),
+            is_unknown_category=categorization_result.get("is_unknown_category", False),
+            evaluation_method=categorization_result.get("evaluation_method", "step_test"),
+            processing_time=0.0,
+            timestamp=datetime.now(timezone.utc).isoformat()
+        )
+        print(f"✅ STEP 4: Response built successfully")
+        
+        return response
+        
+    except Exception as e:
+        print(f"❌ STEP: Error in step test: {e}")
+        import traceback
+        traceback.print_exc()
+        return AgentCategorizationResponse(
+            agent_id=request.agent_id,
+            primary_category=CategoryResult(
+                category_type="unknown",
+                confidence=0.0,
+                keywords_matched=[],
+                reasoning=f"Step test error: {e}"
+            ),
+            secondary_categories=[],
+            extracted_features=None,
+            crypto_details=None,
+            is_unknown_category=True,
+            evaluation_method="step_error",
+            processing_time=0.0,
+            timestamp=datetime.now(timezone.utc).isoformat()
+        )
+
 @crypto_detection_agent.on_rest_post("/minimal-test", AgentCategorizationRequest, AgentCategorizationResponse)
 async def minimal_test_endpoint(ctx: Context, request: AgentCategorizationRequest) -> AgentCategorizationResponse:
     """Minimal test endpoint that bypasses all complex logic"""
