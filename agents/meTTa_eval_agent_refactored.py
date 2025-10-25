@@ -730,76 +730,61 @@ async def discover_agents_endpoint(ctx: Context, request: AgentDiscoveryRequest)
 
 @crypto_detection_agent.on_rest_post("/categorize-agent", AgentCategorizationRequest, AgentCategorizationResponse)
 async def categorize_agent_endpoint(ctx: Context, request: AgentCategorizationRequest) -> AgentCategorizationResponse:
-    """Comprehensive agent categorization endpoint"""
-    ctx.logger.info(f"📨 REST agent categorization request for: {request.agent_id}")
+    """Comprehensive agent categorization endpoint - FIXED VERSION"""
+    print(f"🧪 FIXED: Starting categorization for {request.agent_id}")
     
     try:
-        print(f"🔍 REST endpoint: Starting categorization for {request.agent_id}")
-        
-        # Read agent profile from AgentVerse
-        start_time = time.time()
-        print(f"🔍 REST endpoint: Reading agent profile...")
+        # Step 1: Test agent profile reading
+        print("🧪 FIXED STEP 1: Testing agent profile reading...")
         agent_profile = await read_agent_profile(request.agent_id)
-        profile_time = time.time() - start_time
-        print(f"🔍 REST endpoint: Agent profile read in {profile_time:.2f}s")
+        print(f"✅ FIXED STEP 1: Agent profile read successfully: {agent_profile.agent_name}")
         
-        # Categorize agent (using exact same code as working step test)
-        eval_start_time = time.time()
-        print(f"🔍 REST endpoint: Testing simple detector...")
+        # Step 2: Test simple detector
+        print("🧪 FIXED STEP 2: Testing simple detector...")
         from detection.simple_detector import SimpleDetector
         simple_detector = SimpleDetector()
         categorization_result = await simple_detector.categorize_agent(agent_profile)
-        print(f"✅ REST endpoint: Simple detector successful: {categorization_result.get('evaluation_method')}")
+        print(f"✅ FIXED STEP 2: Simple detector successful: {categorization_result.get('evaluation_method')}")
         
-        eval_time = time.time() - eval_start_time
+        # Step 3: Test feature extraction
+        print("🧪 FIXED STEP 3: Testing feature extraction...")
+        features = await extract_features(agent_profile)
+        print(f"✅ FIXED STEP 3: Feature extraction successful")
         
-        # Extract features if requested
-        features = None
-        if request.include_features:
-            print(f"🔍 REST endpoint: Testing feature extraction...")
-            features = await extract_features(agent_profile)
-            print(f"✅ REST endpoint: Feature extraction successful")
-        
-        # Get crypto details if requested and primary category is crypto
-        crypto_details = None
-        if request.include_crypto_details and categorization_result.get("primary_category", {}).get("category_type") == "crypto":
-            crypto_details = categorization_result.get("crypto_details")
-        
-        print(f"🔍 REST endpoint: Building response...")
+        # Step 4: Build response
+        print("🧪 FIXED STEP 4: Building response...")
         response = AgentCategorizationResponse(
             agent_id=request.agent_id,
             primary_category=categorization_result["primary_category"],
             secondary_categories=categorization_result.get("secondary_categories", []),
             extracted_features=features,
-            crypto_details=crypto_details,
+            crypto_details=categorization_result.get("crypto_details"),
             is_unknown_category=categorization_result.get("is_unknown_category", False),
             evaluation_method=categorization_result.get("evaluation_method", "simple_keyword_matching"),
-            processing_time=profile_time + eval_time,
+            processing_time=0.0,
             timestamp=datetime.now(timezone.utc).isoformat()
         )
-        print(f"✅ REST endpoint: Response built successfully")
+        print(f"✅ FIXED STEP 4: Response built successfully")
         
         return response
         
     except Exception as e:
-        print(f"❌ REST endpoint: Categorization failed: {e}")
+        print(f"❌ FIXED: Error in categorization: {e}")
         import traceback
         traceback.print_exc()
-        ctx.logger.error(f"❌ REST agent categorization failed: {e}")
-        # Return a fallback response
         return AgentCategorizationResponse(
             agent_id=request.agent_id,
             primary_category=CategoryResult(
                 category_type="unknown",
                 confidence=0.0,
                 keywords_matched=[],
-                reasoning="Error during categorization"
+                reasoning=f"Fixed endpoint error: {e}"
             ),
             secondary_categories=[],
             extracted_features=None,
             crypto_details=None,
             is_unknown_category=True,
-            evaluation_method="error_fallback",
+            evaluation_method="fixed_error",
             processing_time=0.0,
             timestamp=datetime.now(timezone.utc).isoformat()
         )
