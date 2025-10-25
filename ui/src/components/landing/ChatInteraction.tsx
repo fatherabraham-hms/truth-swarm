@@ -3,9 +3,7 @@
 import * as React from "react";
 import ReactMarkdown from "react-markdown";
 import { Input } from "../ui/input";
-import {
-  sendMessageToAgent,
-} from "@/actions/agentverse";
+import { sendMessageToAgent } from "@/actions/agentverse";
 import { cn } from "@/lib/utils";
 
 interface Message {
