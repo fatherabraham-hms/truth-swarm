@@ -20,9 +20,7 @@ export async function sendMessageToAgent(
   sessionId?: string
 ): Promise<{ response: string; sessionId: string }> {
   try {
-    const localUrl = "http://localhost:8000";
-    const agentAddress =
-      "agent1qt5uffgp0l3h9mqed8zh8vy5vs374jl2f8y0mjjvqm44axqseejqzmzx9v8";
+    //const localUrl = "http://localhost:8000";
 
     const url = "http://truth-swarm-production-62e4.up.railway.app:8000";
 
