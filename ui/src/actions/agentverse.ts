@@ -70,30 +70,28 @@ export async function sendMessageToAgent(
 ): Promise<{ response: string; sessionId: string }> {
   try {
     // process.env.EVALUATOR_AGENT_ADDRESS
-    const agentAddress =
-      "agent1qtak6m7rgytst3zqmu744t0k8z4xytf3zrnct49efqvwxzqc3f3t5rkflj4";
+    const agentAddress = process.env.EVALUATOR_AGENT_ADDRESS;
     const agentverseApiKey = process.env.AGENTVERSE_API_KEY;
 
     if (!agentverseApiKey) {
       throw new Error("AGENTVERSE_API_KEY environment variable is required");
     }
 
+    const url = `https://agentverse.ai/v1/agents/${agentAddress}/message`;
+    console.log(url);
     // Use Agentverse messaging API
-    const response = await fetch(
-      `https://agentverse.ai/v1/agents/${agentAddress}/message`,
-      {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${agentverseApiKey}`,
-        },
-        body: JSON.stringify({
-          message: message,
-          session_id: sessionId || generateSessionId(),
-        }),
-        cache: "no-store",
-      }
-    );
+    const response = await fetch(url, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${agentverseApiKey}`,
+      },
+      body: JSON.stringify({
+        message: message,
+        session_id: sessionId || generateSessionId(),
+      }),
+      cache: "no-store",
+    });
 
     if (!response.ok) {
       throw new Error(
