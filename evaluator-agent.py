@@ -1,3 +1,4 @@
+from dataclasses import dataclass
 import os
 from pathlib import Path
 from dotenv import load_dotenv
@@ -15,8 +16,9 @@ from openevals.prompts import (
     HALLUCINATION_PROMPT,
     RAG_HELPFULNESS_PROMPT
 )
-from datetime import datetime
+from datetime import datetime, timezone
 from uuid import uuid4
+import random
 import uuid
 import re
 
@@ -54,7 +56,7 @@ eval_comms_agent = Agent(
     readme_path="README.md"
 )
 
-TEST_TARGET_AGENT_ADDRESS = "agent1q282hfw3kpqzs6pqndp7hk68tpgycarqkj5pwuwyfuxsu8sm807p7pkq2er"
+TEST_TARGET_AGENT_ADDRESS = "agent1q2c8sxs5kg902j96ffruh0he2erhjf63eahrypzvj20gjraevxlggy4fq33"
 
 EVAL_CATEGORIES = [
     "correctness",
@@ -126,6 +128,32 @@ class EvalState:
 # Global state instance
 eval_state = EvalState()
 
+################# CLASSES #################
+
+@dataclass
+class EvaluationScore:
+    """Structure for agent evaluation score data that will be attested"""
+    evaluatedAgentAddress: str
+    evaluatorAgentAddress: str
+    timestamp: int
+    finalScore: int
+    overallConfidence: int
+    grade: str
+    correctnessScore: int
+    correctnessConfidence: int
+    correctnessEffectiveScore: int
+    correctnessWeight: int
+    capabilitiesScore: int
+    capabilitiesConfidence: int
+    capabilitiesEffectiveScore: int
+    capabilitiesWeight: int
+    domainScore: int
+    domainConfidence: int
+    domainEffectiveScore: int
+    domainWeight: int
+    detailsCID: str
+
+
 ################# EVAL UTIL FUNCTIONS #################
 def run_evaluation_correctness_task(inputs: dict, outputs: dict, reference_outputs: dict):
     #print the inputs, outputs and reference outputs
@@ -181,12 +209,12 @@ def create_evaluators():
             feedback_key="conciseness",
             continuous=True
         ),
-        create_llm_as_judge(
-            prompt=HALLUCINATION_PROMPT,
-            model="openai:o3-mini",
-            feedback_key="hallucination",
-            continuous=True
-        ),
+        # create_llm_as_judge(
+        #     prompt=HALLUCINATION_PROMPT,
+        #     model="openai:o3-mini",
+        #     feedback_key="hallucination",
+        #     continuous=True
+        # ),
         create_llm_as_judge(
             prompt=RAG_HELPFULNESS_PROMPT,
             model="openai:o3-mini",
@@ -225,7 +253,11 @@ def run_evaluator_agent(eval_data, tested_agent_response):
     # Create a proper target function for this specific response
     def evaluation_target(inputs):
         # Return the actual agent response we want to evaluate
-        return {"answer": tested_agent_response}
+        # Provide context for evaluators that need it (hallucination, helpfulness)
+        return {
+            "answer": tested_agent_response,
+            "context": inputs.get("question", "")
+        }
 
     evaluators = create_evaluators()
 
@@ -256,6 +288,92 @@ def run_evaluator_agent(eval_data, tested_agent_response):
         import traceback
         traceback.print_exc()
         raise e  # Re-raise to see the full error
+
+
+################# SCORING #################
+def generate_score(tested_agent_address: str, ctx: Context, eval_result) -> EvaluationScore:
+        """Generate realistic mock evaluation scores for demo/hackathon"""
+        
+        # Extract correctness score from evaluation results
+        correctness_score = None
+        conciseness_score = None
+        hallucination_score = None
+        helpfulness_score = None
+
+        if eval_result and isinstance(eval_result, list) and len(eval_result) > 0:
+            # Look for feedback in the results - EvaluationResult has key and score attributes
+            for result in eval_result:
+                try:
+                    # Access score directly from the result object
+                    if hasattr(result, 'key') and hasattr(result, 'score'):
+                        score_value = int(result.score * 100) if result.score is not None else None
+                        
+                        if result.key == 'correctness' and score_value is not None:
+                            correctness_score = score_value
+                            ctx.logger.info(f"✓ Correctness score: {correctness_score}")
+                        elif result.key == 'conciseness' and score_value is not None:
+                            conciseness_score = score_value
+                            ctx.logger.info(f"✓ Conciseness score: {conciseness_score}")
+                        elif result.key == 'hallucination' and score_value is not None:
+                            hallucination_score = score_value
+                            ctx.logger.info(f"✓ Hallucination score: {hallucination_score}")
+                        elif result.key == 'helpfulness' and score_value is not None:
+                            helpfulness_score = score_value
+                            ctx.logger.info(f"✓ Helpfulness score: {helpfulness_score}")
+                except Exception as e:
+                    ctx.logger.warning(f"Failed to extract score from result: {e}")
+                    continue
+
+        capabilities_score = random.randint(70, 90)
+        domain_score = random.randint(80, 95)
+        
+        # Weights (should sum to 100)
+        correctness_weight = 40
+        capabilities_weight = 30
+        domain_weight = 30
+        
+        # Calculate effective scores (weighted)
+        correctness_effective = (correctness_score * correctness_weight) // 100
+        capabilities_effective = (capabilities_score * capabilities_weight) // 100
+        domain_effective = (domain_score * domain_weight) // 100
+        
+        final_score = correctness_effective + capabilities_effective + domain_effective
+        
+        # Assign grade
+        if final_score >= 90:
+            grade = "A+"
+        elif final_score >= 85:
+            grade = "A"
+        elif final_score >= 80:
+            grade = "B+"
+        elif final_score >= 75:
+            grade = "B"
+        else:
+            grade = "C+"
+        
+        ctx.logger.info(f"📊 Generated evaluation: Score={final_score}/100, Grade={grade}")
+        
+        return EvaluationScore(
+            evaluatedAgentAddress=tested_agent_address,
+            evaluatorAgentAddress=str(eval_comms_agent.address),
+            timestamp=int(datetime.now(timezone.utc).timestamp()),
+            finalScore=final_score,
+            overallConfidence=8,
+            grade=grade,
+            correctnessScore=correctness_score,
+            correctnessConfidence=8,
+            correctnessEffectiveScore=correctness_effective,
+            correctnessWeight=correctness_weight,
+            capabilitiesScore=capabilities_score,
+            capabilitiesConfidence=7,
+            capabilitiesEffectiveScore=capabilities_effective,
+            capabilitiesWeight=capabilities_weight,
+            domainScore=domain_score,
+            domainConfidence=9,
+            domainEffectiveScore=domain_effective,
+            domainWeight=domain_weight,
+            detailsCID=f"bafkreimock{random.randint(1000, 9999)}evaluation"
+        )
 
 ################# UTILITY FUNCTIONS #################
 
@@ -338,6 +456,8 @@ async def handle_ai_response(ctx: Context, sender: str, msg: ChatMessage):
         
         #TODO: send eval result to badging agent
         print(f"LangSmith evaluation completed!")
+
+        generate_score(TEST_TARGET_AGENT_ADDRESS, ctx, eval_result)
 
         ctx.logger.info(f"Evaluation completed for {sender}")
         ctx.logger.info(f"Evaluation result: {eval_result}")

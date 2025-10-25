@@ -24,6 +24,7 @@ pandas==2.2.3
 
 # Development tools (optional)
 python-dateutil==2.9.0.post0
+dataclasses==0.6.0
 
 
 ####### FINAL #####
