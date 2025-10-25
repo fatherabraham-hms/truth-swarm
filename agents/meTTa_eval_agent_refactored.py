@@ -739,12 +739,10 @@ async def categorize_agent_endpoint(ctx: Context, request: AgentCategorizationRe
         agent_profile = await read_agent_profile(request.agent_id)
         print(f"✅ FIXED STEP 1: Agent profile read successfully: {agent_profile.agent_name}")
         
-        # Step 2: Test simple detector
-        print("🧪 FIXED STEP 2: Testing simple detector...")
-        from detection.simple_detector import SimpleDetector
-        simple_detector = SimpleDetector()
-        categorization_result = await simple_detector.categorize_agent(agent_profile)
-        print(f"✅ FIXED STEP 2: Simple detector successful: {categorization_result.get('evaluation_method')}")
+        # Step 2: Use advanced meTTa categorization
+        print("🧪 FIXED STEP 2: Testing meTTa categorization...")
+        categorization_result = await categorize_agent(agent_profile)
+        print(f"✅ FIXED STEP 2: Categorization successful: {categorization_result.get('evaluation_method')}")
         
         # Step 3: Test feature extraction
         print("🧪 FIXED STEP 3: Testing feature extraction...")
