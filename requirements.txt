@@ -18,6 +18,10 @@ cosmpy==0.11.1
 bech32==1.2.0
 ecdsa==0.19.1
 
+# Ethereum/EAS blockchain integration
+web3>=6.0.0
+eth-abi>=4.0.0
+
 # Basic data processing
 numpy==1.26.4
 pandas==2.2.3
