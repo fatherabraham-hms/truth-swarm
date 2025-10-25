@@ -131,14 +131,66 @@ async def categorize_agent(agent_profile: AgentProfileData) -> Dict[str, Any]:
     Categorize an agent into primary and secondary categories using meTTa framework.
     Falls back to simple detection if meTTa is not available.
     """
+    print(f"🔍 Starting categorization for agent: {agent_profile.agent_id}")
+    print(f"   meTTa categorizer available: {metta_categorizer and metta_categorizer.is_available()}")
+    
     if metta_categorizer and metta_categorizer.is_available():
         try:
-            return await metta_categorizer.categorize_agent(agent_profile)
+            print("🧠 Attempting meTTa categorization...")
+            result = await metta_categorizer.categorize_agent(agent_profile)
+            print(f"✅ meTTa categorization successful: {result.get('evaluation_method', 'unknown')}")
+            return result
         except Exception as e:
-            print(f"❌ meTTa categorization failed, falling back to simple: {e}")
-            return await simple_detector.categorize_agent(agent_profile)
+            print(f"❌ meTTa categorization failed: {e}")
+            import traceback
+            traceback.print_exc()
+            print("🔄 Falling back to simple categorization...")
+            try:
+                result = await simple_detector.categorize_agent(agent_profile)
+                print(f"✅ Simple categorization successful: {result.get('evaluation_method', 'unknown')}")
+                return result
+            except Exception as e2:
+                print(f"❌ Simple categorization also failed: {e2}")
+                import traceback
+                traceback.print_exc()
+                # Return a minimal error response
+                return {
+                    "primary_category": CategoryResult(
+                        category_type="unknown",
+                        confidence=0.0,
+                        keywords_matched=[],
+                        reasoning=f"Error during categorization: {e2}"
+                    ),
+                    "secondary_categories": [],
+                    "extracted_features": None,
+                    "crypto_details": None,
+                    "is_unknown_category": True,
+                    "evaluation_method": "error_fallback"
+                }
     else:
-        return await simple_detector.categorize_agent(agent_profile)
+        print("🔄 meTTa not available, using simple categorization...")
+        try:
+            result = await simple_detector.categorize_agent(agent_profile)
+            print(f"✅ Simple categorization successful: {result.get('evaluation_method', 'unknown')}")
+            return result
+        except Exception as e:
+            print(f"❌ Simple categorization failed: {e}")
+            import traceback
+            traceback.print_exc()
+            # Return a minimal error response
+            return {
+                "primary_category": CategoryResult(
+                    category_type="unknown",
+                    confidence=0.0,
+                    keywords_matched=[],
+                    reasoning=f"Error during categorization: {e}"
+                ),
+                "secondary_categories": [],
+                "extracted_features": None,
+                "crypto_details": None,
+                "is_unknown_category": True,
+                "evaluation_method": "error_fallback"
+            }
 
 
 async def extract_features(agent_profile: AgentProfileData) -> FeatureExtractionResult:
@@ -146,14 +198,59 @@ async def extract_features(agent_profile: AgentProfileData) -> FeatureExtraction
     Extract features from agent profile using meTTa framework.
     Falls back to simple extraction if meTTa is not available.
     """
+    print(f"🔍 Starting feature extraction for agent: {agent_profile.agent_id}")
+    
     if metta_categorizer and metta_categorizer.is_available():
         try:
-            return await metta_categorizer.extract_features(agent_profile)
+            print("🧠 Attempting meTTa feature extraction...")
+            result = await metta_categorizer.extract_features(agent_profile)
+            print(f"✅ meTTa feature extraction successful")
+            return result
         except Exception as e:
-            print(f"❌ meTTa feature extraction failed, falling back to simple: {e}")
-            return await simple_detector.extract_features(agent_profile)
+            print(f"❌ meTTa feature extraction failed: {e}")
+            import traceback
+            traceback.print_exc()
+            print("🔄 Falling back to simple feature extraction...")
+            try:
+                result = await simple_detector.extract_features(agent_profile)
+                print(f"✅ Simple feature extraction successful")
+                return result
+            except Exception as e2:
+                print(f"❌ Simple feature extraction also failed: {e2}")
+                import traceback
+                traceback.print_exc()
+                # Return a minimal feature extraction result
+                return FeatureExtractionResult(
+                    tech_stack=[],
+                    supported_chains=[],
+                    protocols=[],
+                    key_features=[],
+                    capabilities=[],
+                    integrations=[],
+                    target_audience=None,
+                    business_model=None
+                )
     else:
-        return await simple_detector.extract_features(agent_profile)
+        print("🔄 meTTa not available, using simple feature extraction...")
+        try:
+            result = await simple_detector.extract_features(agent_profile)
+            print(f"✅ Simple feature extraction successful")
+            return result
+        except Exception as e:
+            print(f"❌ Simple feature extraction failed: {e}")
+            import traceback
+            traceback.print_exc()
+            # Return a minimal feature extraction result
+            return FeatureExtractionResult(
+                tech_stack=[],
+                supported_chains=[],
+                protocols=[],
+                key_features=[],
+                capabilities=[],
+                integrations=[],
+                target_audience=None,
+                business_model=None
+            )
 
 
 async def read_agent_profile(agent_id: str) -> AgentProfileData:
