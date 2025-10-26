@@ -3,6 +3,7 @@ import os
 from pathlib import Path
 from dotenv import load_dotenv
 from uagents import Agent, Context, Model
+from uagents.agent import AgentInfo
 from uagents_core.contrib.protocols.chat import (
     ChatMessage,
     TextContent,
@@ -27,6 +28,10 @@ from web3 import Web3
 from web3.middleware import ExtraDataToPOAMiddleware
 from eth_abi import encode
 from typing import Optional
+
+# Import protocol modules
+from human_chat_protocol import create_chat_protocol
+from eval_protocol import create_evaluation_protocol, EvaluationRequest, EvaluationResponse
 
 # Load environment variables
 # Default to local development - load from .env file
@@ -62,10 +67,12 @@ if not os.getenv("CHAIN_ID"):
     raise ValueError("CHAIN_ID environment variable not set")
 
 # Instantiate agent agent1qtak6m7rgytst3zqmu744t0k8z4xytf3zrnct49efqvwxzqc3f3t5rkflj4
+# Note: No endpoint parameter - mailbox handles agent-to-agent communication via Agentverse
+# REST handlers will still be served on the specified port for HTTP API access
 eval_comms_agent = Agent(
     name="truthswarm",
     seed=SEED_PHRASE,
-    port=8000,
+    port=int(os.getenv('DEPLOYMENT_PORT', 8000)),
     mailbox=True,
     readme_path="README.md"
 )
@@ -695,6 +702,8 @@ async def init_eval(ctx: Context):
             )
         )
         ctx.logger.info(f"Sent question {eval_state.currentQuestionIndex + 1}/{len(evalData)}: {current_question['inputs']['question'][:50]}...")
+
+
 class AIRequest(Model):
     question: str
 class AIResponse(Model):
@@ -804,6 +813,84 @@ async def do_evaluation(ctx: Context, sender: str, msg: AIRequest):
         destination=sender, 
         message=message
     )
+
+########### REST MODELS ##########
+class ChatRequest(Model):
+    """Request to chat with the agent"""
+    message: str
+    session_id: str = ""
+
+
+class ChatResponse(Model):
+    """Response from chat"""
+    response: str
+    session_id: str
+
+########## REST HANDLERS ##########
+@eval_comms_agent.on_rest_get("/agent-info", AgentInfo)
+async def handle_agent_info(ctx: Context):
+    ctx.logger.info(f"Received request for /agent-info")
+    return AgentInfo(
+        address=eval_comms_agent.address,
+        prefix=eval_comms_agent._prefix,
+        endpoints=eval_comms_agent._endpoints,
+        protocols=list(eval_comms_agent.protocols.keys()),
+        metadata=eval_comms_agent.metadata,
+        agent_type=eval_comms_agent.agent_type,
+        port=eval_comms_agent._port,
+    )
+
+@eval_comms_agent.on_rest_post("/evaluate", EvaluationRequest, EvaluationResponse)
+async def handle_evaluate(ctx: Context, request: EvaluationRequest) -> EvaluationResponse:
+    ctx.logger.info(f"Received request for /evaluate: {request}")
+
+    init_eval(ctx)
+
+    #run evaluation
+    eval_result = run_evaluator_agent(eval_state.currentEvalData, eval_state.responses)
+
+    #generate evaluation score
+    evaluation_score = generate_score(TEST_TARGET_AGENT_ADDRESS, ctx, eval_result)
+
+    return EvaluationResponse(
+        success=True,
+        agent_address=TEST_TARGET_AGENT_ADDRESS,
+        attestation_uid=evaluation_score.attestation_uid,
+        final_score=evaluation_score.final_score,
+        grade=evaluation_score.grade,
+        message="Evaluation completed successfully",
+        error=None
+    )
+
+@eval_comms_agent.on_rest_post("/chat", ChatRequest, ChatResponse)
+async def rest_chat(ctx: Context, request: ChatRequest) -> ChatResponse:
+    """
+    REST endpoint for conversational chat
+    
+    This uses ASI:1 Mini for general knowledge with automatic evaluation detection.
+    
+    Example:
+    curl -X POST http://localhost:8000/chat \
+      -H "Content-Type: application/json" \
+      -d '{"message": "Can you evaluate agent1q... for me?", "session_id": "123"}'
+    """
+    from human_chat_protocol import ASI1ChatHandler
+    
+    ctx.logger.info(f"💬 REST chat request: {request.message}")
+    
+    # Create handler and process message
+    handler = ASI1ChatHandler(eval_comms_agent, init_eval)
+    response_text = await handler.chat(
+        request.message,
+        request.session_id or f"rest_{datetime.now(timezone.utc).timestamp()}",
+        ctx
+    )
+    
+    return ChatResponse(
+        response=response_text,
+        session_id=request.session_id
+    )
+
 
 if __name__ == "__main__":
     eval_comms_agent.run()
