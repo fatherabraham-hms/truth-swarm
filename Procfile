@@ -1,1 +1,1 @@
-web: python evaluator-agent.py
+web: python ./evaluator-agent.py
