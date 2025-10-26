@@ -373,11 +373,9 @@ class AgentEvaluator:
 # ===== AGENT SETUP =====
 agent = Agent(
     name="evaluator_attestation_agent",
-    #seed="evaluator_attestation_unique_seed",
-    seed="",
+    seed=os.getenv("EVALUATOR_AGENT_SEED"),
     port=8000,
-    endpoint=["http://localhost:8000/submit"],
-    #mailbox=True  -> Enable for Agentverse integration overriden by endpoint implementation
+    mailbox=True
 )
 
 
