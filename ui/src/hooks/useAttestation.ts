@@ -39,8 +39,15 @@ export function useAttestationByUID(uid?: string, enabled: boolean = true) {
 export function useAgentAttestations() {
   return useQuery<AgentAttestation[]>({
     queryKey: ["agent-attestations"],
-    queryFn: async () => await getAgentAttestations(),
-    staleTime: 1000 * 60, //* 5,
+    queryFn: async () => {
+      const response = await fetch('/api/mock-data/agent-attestations');
+      if (!response.ok) {
+        throw new Error('Failed to fetch agent attestations');
+      }
+      return response.json();
+    },
+    staleTime: 0, // Always consider data stale in development
+    refetchInterval: process.env.NODE_ENV === 'development' ? 2000 : false, // Refetch every 2 seconds in dev
     retry: 1,
   });
 }
@@ -48,8 +55,15 @@ export function useAgentAttestations() {
 export function useHumanAttestations() {
   return useQuery<HumanAttestation[]>({
     queryKey: ["human-attestations"],
-    queryFn: async () => await getHumanAttestations(),
-    staleTime: 1000 * 60 * 5,
+    queryFn: async () => {
+      const response = await fetch('/api/mock-data/human-attestations');
+      if (!response.ok) {
+        throw new Error('Failed to fetch human attestations');
+      }
+      return response.json();
+    },
+    staleTime: 0, // Always consider data stale in development
+    refetchInterval: process.env.NODE_ENV === 'development' ? 2000 : false, // Refetch every 2 seconds in dev
     retry: 1,
   });
 }

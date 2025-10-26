@@ -33,7 +33,6 @@ export function AgentScorePieChart({
       effectiveScore: evalScore.correctnessEffectiveScore,
       score: evalScore.correctnessScore,
       confidence: evalScore.correctnessConfidence,
-      fill: getScoreColor(evalScore.correctnessEffectiveScore),
     },
     {
       metric: "Capabilities",
@@ -41,7 +40,6 @@ export function AgentScorePieChart({
       effectiveScore: evalScore.capabilitiesEffectiveScore,
       score: evalScore.capabilitiesScore,
       confidence: evalScore.capabilitiesConfidence,
-      fill: getScoreColor(evalScore.capabilitiesEffectiveScore),
     },
     {
       metric: "Domain",
@@ -49,7 +47,6 @@ export function AgentScorePieChart({
       effectiveScore: evalScore.domainEffectiveScore,
       score: evalScore.domainScore,
       confidence: evalScore.domainConfidence,
-      fill: getScoreColor(evalScore.domainEffectiveScore),
     },
   ];
 
@@ -59,12 +56,15 @@ export function AgentScorePieChart({
     },
     Correctness: {
       label: "Correctness",
+      color: getScoreColor((evalScore.correctnessScore / 40) * 100),
     },
     Capabilities: {
-      label: "Capabilities",
+      label: "Capabilities", 
+      color: getScoreColor((evalScore.capabilitiesScore / 30) * 100),
     },
     Domain: {
       label: "Domain",
+      color: getScoreColor((evalScore.domainScore / 30) * 100),
     },
   } satisfies ChartConfig;
 

@@ -5,7 +5,7 @@ Handles direct agent-to-agent evaluation requests via uAgents protocol.
 """
 
 from uagents import Agent, Context, Protocol, Model
-from typing import Optional
+from typing import Optional, List, Dict, Any
 
 
 class EvaluationRequest(Model):
@@ -24,6 +24,14 @@ class EvaluationResponse(Model):
     grade: str
     message: str
     error: Optional[str] = None
+    
+    # meTTa categorization data (optional, added for integration)
+    metta_categorization: Optional[Dict[str, Any]] = None
+    primary_category: Optional[str] = None
+    secondary_categories: Optional[List[str]] = None
+    extracted_features: Optional[Dict[str, Any]] = None
+    crypto_details: Optional[Dict[str, Any]] = None
+    categorization_method: Optional[str] = None
 
 
 def create_evaluation_protocol(agent: Agent, process_evaluation_func) -> Protocol:

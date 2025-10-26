@@ -1,6 +1,7 @@
 "use server";
 
 import { AgentVerseInfo } from "@/types/agents";
+import { getMockAgentInfo } from "@/lib/mock-data-store";
 
 // Types for chat interaction
 export interface ChatMessage {
@@ -27,6 +28,15 @@ const agentInfoUrl = `https://agentverse.ai/v1/search/agents`;
 export async function fetchAgentverseInfo(
   address: string
 ): Promise<AgentVerseInfo | null> {
+  // Return mock data in development
+  if (process.env.NODE_ENV === 'development') {
+    const mockInfo = getMockAgentInfo(address);
+    if (mockInfo) {
+      console.log(`🔧 Using mock agent info for ${address}`);
+      return mockInfo;
+    }
+  }
+
   try {
     const response = await fetch(`${agentInfoUrl}/${address}`, {
       next: { revalidate: 3600 }, // Cache for 1 hour

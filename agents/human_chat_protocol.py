@@ -103,7 +103,12 @@ Keep responses concise, helpful, and friendly. If you don't know something, just
     def _format_evaluation_result(self, result) -> str:
         """Format evaluation result for chat display"""
         if result.success:
-            return f"""✅ Agent Evaluation Complete!
+            # Use the detailed message from the evaluation result if available
+            if hasattr(result, 'message') and result.message:
+                return result.message
+            else:
+                # Fallback to basic format if no detailed message
+                return f"""✅ Agent Evaluation Complete!
 
 📊 Final Score: {result.final_score}/100
 🎓 Grade: {result.grade}

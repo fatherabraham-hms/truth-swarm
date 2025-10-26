@@ -13,7 +13,7 @@ pip install -r requirements.txt
 
 ### 2. Configure Environment
 
-Copy the template and configure your environment:
+Create a `.env` file in the project root with the following configuration:
 
 ```bash
 # Copy template to project root
@@ -21,6 +21,18 @@ cp .env.template ../.env
 
 # Edit the .env file with your configuration
 nano ../.env
+```
+
+**Required Configuration:**
+
+```bash
+# meTTa Agent Integration (REQUIRED)
+METTA_AGENT_URL=https://truth-swarm-production.up.railway.app
+METTA_TIMEOUT=10
+
+# Evaluator Agent Configuration
+AGENT_NAME=evaluator_attestation_agent
+PORT=8000
 ```
 
 **For Testing/Development (Mock Mode):**
@@ -70,7 +82,34 @@ curl -X POST http://localhost:8000/evaluate \
   "attestation_uid": "0x1234...",
   "final_score": 87,
   "grade": "A",
-  "message": "Agent evaluated successfully! Score: 87/100 (A). Attestation created on EAS."
+  "message": "Agent evaluated successfully! Score: 87/100 (A). Attestation created on EAS.",
+  "primary_category": "crypto",
+  "secondary_categories": ["defi", "trading"],
+  "categorization_method": "meTTa symbolic reasoning",
+  "metta_categorization": {
+    "agent_id": "agent1q...",
+    "primary_category": {
+      "category_type": "crypto",
+      "confidence": 0.85,
+      "keywords_matched": ["bitcoin", "ethereum", "trading"],
+      "reasoning": "Agent specializes in cryptocurrency trading and blockchain analysis"
+    },
+    "secondary_categories": [...],
+    "extracted_features": {
+      "tech_stack": ["Python", "Web3"],
+      "supported_chains": ["Ethereum", "Bitcoin"],
+      "protocols": ["Uniswap", "Compound"],
+      "key_features": ["price monitoring", "portfolio management"],
+      "capabilities": ["trading", "analysis"],
+      "integrations": ["Coinbase", "Binance"],
+      "target_audience": "crypto traders",
+      "business_model": "subscription"
+    },
+    "crypto_details": {...},
+    "evaluation_method": "meTTa symbolic reasoning",
+    "processing_time": 2.3,
+    "timestamp": "2024-01-15T10:30:00Z"
+  }
 }
 ```
 
@@ -89,13 +128,22 @@ Frontend → REST POST → Evaluator Agent
                             ↓
                     ┌───────┴────────┐
                     │                │
-              ASI:1 Evaluator   Attestation Manager
+              Agent Evaluator   Attestation Manager
               (Mock or Real)    (EAS Integration)
                     │                │
                     └───────┬────────┘
                             ↓
-                    EvaluationResponse
-                    + Attestation UID
+                    EAS Attestation Created
+                            ↓
+                    ┌───────┴────────┐
+                    │                │
+              meTTa Agent Call   Response Assembly
+              (Railway Deployed)  (Combined Results)
+                    │                │
+                    └───────┬────────┘
+                            ↓
+                    Enhanced EvaluationResponse
+                    + Attestation UID + Categorization
 ```
 
 ### Components
@@ -105,21 +153,29 @@ Frontend → REST POST → Evaluator Agent
    - REST endpoint: `/evaluate`
    - Chat protocol handler
    - Evaluation + attestation orchestration
+   - meTTa agent integration
 
-2. **`AttestationManager`** - EAS Integration
+2. **`metta_client.py`** - meTTa Agent Integration (NEW)
+
+   - HTTP client for Railway-deployed meTTa agent
+   - Handles categorization requests
+   - Error handling and timeout management
+   - Graceful fallback if meTTa unavailable
+
+3. **`AttestationManager`** - EAS Integration
 
    - Encodes evaluation data
    - Creates blockchain attestations
    - Handles Web3 transactions
    - Mock mode for testing
 
-3. **`ASI1Evaluator`** - Agent Evaluation
+4. **`AgentEvaluator`** - Agent Evaluation
 
    - Generates evaluation scores
    - Mock mode: realistic random scores
-   - Future: Real ASI:1 evaluation
+   - Future: Real evaluation logic
 
-4. **`EvaluationScore`** - Data Structure
+5. **`EvaluationScore`** - Data Structure
    - All evaluation metrics
    - Matches EAS schema exactly
    - Ready for blockchain encoding
@@ -169,6 +225,8 @@ The agent uses the official Truth Swarm EAS schema:
 
 | Variable                    | Description               | Required       | Default            |
 | --------------------------- | ------------------------- | -------------- | ------------------ |
+| `METTA_AGENT_URL`           | meTTa agent Railway URL   | **Yes**        | Railway URL        |
+| `METTA_TIMEOUT`             | meTTa request timeout     | No             | 10 seconds        |
 | `RPC_URL`                   | Ethereum RPC endpoint     | No             | Sepolia Infura     |
 | `CHAIN_ID`                  | Blockchain network ID     | No             | 11155111 (Sepolia) |
 | `EAS_CONTRACT_ADDRESS`      | EAS contract address      | No             | Sepolia EAS        |
@@ -222,10 +280,12 @@ curl -X POST http://localhost:8000/evaluate \
 ```
 agents/
 ├── evaluator_agent.py           # Main agent (integrated solution)
-├── resolver_atestation_agent.py # Original resolver agent (reference)
+├── metta_client.py              # meTTa agent HTTP client (NEW)
+├── eval_protocol.py             # Evaluation protocol models
+├── human_chat_protocol.py       # Chat protocol handler
+├── meTTa_eval_agent.py          # Reference meTTa agent (deployed)
 ├── requirements.txt             # Python dependencies
 ├── .env.template                # Environment template
-├── config.template              # Legacy config (reference)
 └── README.md                    # This file
 ```
 
@@ -237,6 +297,7 @@ The agent is **hackathon-ready** with:
 ✅ **REST API** - Easy frontend integration
 ✅ **Chat Protocol** - Interactive demos
 ✅ **Realistic Scores** - Generated with variation
+✅ **meTTa Integration** - Rich categorization analysis
 ✅ **Fast** - Instant responses in mock mode
 
 Just run `python evaluator_agent.py` and start evaluating agents!

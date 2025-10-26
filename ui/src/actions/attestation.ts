@@ -16,6 +16,10 @@ import {
   HUMAN_ATTESTATION_SCHEMA,
   createHumanConfirmationFromDecoded,
 } from "@/lib/attestation-utils";
+import { 
+  getMockAgentAttestations, 
+  getMockHumanAttestations 
+} from "@/lib/mock-data-store";
 
 // ATTESTATION BY ID
 export async function getAttestationByUid(
@@ -80,6 +84,12 @@ export async function getAgentAttestations(options?: {
     revoked?: boolean;
   };
 }): Promise<AgentAttestation[]> {
+  // Return mock data in development
+  if (process.env.NODE_ENV === 'development') {
+    console.log("🔧 Using mock agent attestations for development");
+    return getMockAgentAttestations();
+  }
+
   try {
     const limit = options?.limit || 50;
     const skip = options?.skip || 0;
@@ -260,6 +270,12 @@ export async function getHumanAttestations(options?: {
     revoked?: boolean;
   };
 }): Promise<HumanAttestation[]> {
+  // Return mock data in development
+  if (process.env.NODE_ENV === 'development') {
+    console.log("🔧 Using mock human attestations for development");
+    return getMockHumanAttestations();
+  }
+
   try {
     const limit = options?.limit || 50;
     const skip = options?.skip || 0;
