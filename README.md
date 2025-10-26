@@ -1,343 +1,318 @@
-# Truth Swarm
+# Truth Swarm - Agent Evaluator with EAS Attestation
 
-Truth Swarm is a verification mechanism for consumer protections in the age of agentic AI. It provides a decentralized attestation system that enables AI agents to create verifiable evaluations and human verifications of other agents' performance.
-
-## 🎯 Overview
-
-Truth Swarm implements a comprehensive attestation system using:
-
-- **EAS (Ethereum Attestation Service) & Resolver Contract** for managing authorization and attestation logic
-- **Python agents** for processing evaluations and creating attestations
-- **Next.js UI** for user interfaces
+This directory contains the integrated evaluator agent that combines AI-powered agent evaluation with blockchain attestation using the Ethereum Attestation Service (EAS).
 
 ## 🚀 Quick Start
 
-### Prerequisites
-
-- **Python 3.13+** with virtual environment support
-- **Node.js 18+** with npm
-- **Git** for version control
-
-### 1. Clone and Setup
-
-```bash
-# Clone the repository
-git clone <repository-url>
-cd truth-swarm
-
-# Setup Python environment
-python -m venv venv
-source venv/bin/activate  # On Windows: venv\Scripts\activate
-pip install -r requirements.txt
-
-# Setup Node.js dependencies
-cd scripts && npm install
-cd ../ui && npm install
-cd ../test-env && npm install
-```
-
-### 2. Configuration
-
-```bash
-# Copy configuration template
-cp .env.template .env
-
-# Edit .env with your settings:
-# - RPC_URL: Blockchain RPC endpoint (SEPOLIA)
-# - PRIVATE_KEY: Your wallet private key (Paste the address associated with the key and ask for whitelisting on resolver)
-# - AGENTVERSE_API_KEY: Used in the UI for fecthing agent data based on the agent address
-# - ASI_ONE_API_KEY: Used by the AGENT to communicate with ASI:1 LLM
-```
-
-### 3. Setup Local Testing
-
-```bash
-# Run the complete test suite
-cd agents
-python evaluator_agent.py
-```
-
-```bash
-# Run the complete test suite
-cd ui
-npm install
-npm run dev
-```
-
-## 📚 Components
-
-### 1. 🤖 Agents (`/agents`)
-
-Python-based evaluator agents that process agent evaluations and create blockchain attestations.
-
-**Key Features:**
-
-- **REST API endpoint** at `/evaluate` for easy integration
-- **Chat Protocol** for interactive evaluations with ASI:1 support
-- **Mock Mode** for development without blockchain transactions
-- **EAS Integration** via AttestationManager for on-chain attestations
-
-**Main Files:**
-
-- `evaluator_agent.py` - Core agent with REST endpoint and evaluation orchestration
-- `eval_protocol.py` - Agent-to-agent evaluation protocol
-- `human_chat_protocol.py` - Human-facing chat interface with ASI:1 integration
-
-**Evaluation Metrics:**
-
-- Correctness (40% weight) - Response accuracy and confidence
-- Capabilities (30% weight) - Range of supported operations
-- Domain Knowledge (30% weight) - Expertise depth
-
-**Usage:**
+### 1. Install Dependencies
 
 ```bash
 cd agents
 pip install -r requirements.txt
-python evaluator_agent.py  # Starts on http://localhost:8000
 ```
 
-See [Agent Documentation](agents/README.md) for detailed usage.
+### 2. Configure Environment
 
-### 2. 📜 Smart Contracts (`/contracts`)
-
-Solidity smart contracts built with Foundry for managing attestation authorization.
-
-> **Note:** The contracts are already deployed on Sepolia. You don't need to deploy them yourself unless you're setting up a custom instance or testing on a different network.
-
-**Key Components:**
-
-- **TruthSwarmResolver** (`Resolver.sol`) - Whitelist-based resolver contract that validates attestations from authorized agents
-- **EAS Integration** - Leverages Ethereum Attestation Service for decentralized verification
-- **Access Control** - Owner-managed whitelist for agent authorization
-
-**Contract Features:**
-
-- Whitelist management (add/remove attesters)
-- Attestation validation for whitelisted agents only
-- Event emission for transparency
-- OpenZeppelin security patterns
-
-**Deployed Contracts:**
-
-- **Network:** Sepolia Testnet
-- **EAS Contract:** `0x4200000000000000000000000000000000000021`
-- **Schema UID:** `0xcd0ab40423e8919b72b665cb563c82b895acc2b690626f2c8180e1db83f6f5bc`
-
-**Development (Optional):**
+Copy the template and configure your environment:
 
 ```bash
-cd contracts
-forge build                    # Compile contracts
-forge test                     # Run tests
+# Copy template to project root
+cp .env.template ../.env
+
+# Edit the .env file with your configuration
+nano ../.env
 ```
 
-See [Contracts Documentation](contracts/README.md) for deployment details.
+**For Testing/Development (Mock Mode):**
 
-### 3. 🎨 User Interface (`/ui`)
+- Leave `PRIVATE_KEY` empty
+- The agent will generate mock evaluations and attestation UIDs
+- Perfect for frontend development!
 
-Next.js 15 web application for viewing attestations, agent evaluations, and human verifications.
+**For Production (Real EAS Attestations):**
 
-**Key Features:**
+- Set `PRIVATE_KEY` with your Ethereum private key
+- Ensure your wallet has ETH for gas fees
+- Set `RPC_URL` to your Infura/Alchemy endpoint
 
-- **Agent Evaluation Dashboard** - View and submit agent evaluations
-- **Human Attestations Overview** - Manual verification interface
-- **Real-time Data** - GraphQL queries to EAS for live attestation data
-- **Wallet Integration** - Connect via wagmi/viem for on-chain interactions
-- **Responsive Design** - Built with Radix UI and Tailwind CSS
-
-**Main Pages:**
-
-- Agent evaluation submission and viewing
-- Human verification interface
-- Attestation explorer and search
-- Dashboard with metrics and recent activity
-
-**Usage:**
+### 3. Run the Agent
 
 ```bash
-cd ui
-npm install
-npm run dev  # Starts on http://localhost:3000
-```
-
-See [UI Documentation](ui/README.md) for detailed features.
-
-### Component Integration
-
-```
-┌─────────────┐
-│   UI (Web)  │ ─── REST POST ──► ┌──────────────┐
-└─────────────┘                   │    Agents    │
-       │                          │ (Python)     │
-       │                          └──────┬───────┘
-       │                                 │
-       │                          Creates Attestations
-       │                                 │
-       ▼                                 ▼
-┌─────────────────────────────────────────────┐
-│   Smart Contracts (Resolver + EAS)         │
-│   • Validates whitelisted agents           │
-│   • Stores attestations on-chain           │
-└─────────────────────────────────────────────┘
-```
-
-**Data Flow:**
-
-1. UI calls agent REST endpoint `/evaluate` with agent address
-2. Agent evaluates target agent and generates scores
-3. Agent creates attestation via AttestationManager
-4. Resolver contract validates agent is whitelisted
-5. EAS stores attestation on blockchain
-6. UI queries attestation data via GraphQL
-
-## 🧪 Testing
-
-### Agent Tests
-
-```bash
-cd agents
-# Run agent with mock mode (no blockchain required)
 python evaluator_agent.py
+```
 
-# Test REST endpoint
+The agent will start on `http://localhost:8000` with:
+
+- ✅ REST API endpoint at `/evaluate`
+- ✅ Chat protocol for interactive evaluations
+- ✅ Automatic EAS attestation (or mock mode)
+
+## 📋 Usage Examples
+
+### REST API
+
+Evaluate an agent via REST:
+
+```bash
 curl -X POST http://localhost:8000/evaluate \
   -H "Content-Type: application/json" \
-  -d '{"agent_address": "agent1qtest..."}'
+  -d '{
+    "agent_address": "agent1q0h70caed8ax769shpemapzkyk65uscw4xwk6dc4t3emvp5jdcvqs9xs32y"
+  }'
 ```
 
-### Contract Tests
+**Response:**
 
-```bash
-cd contracts
-forge test                    # Run all tests
-forge test -vvv              # Verbose output
-forge coverage               # Coverage report
+```json
+{
+  "success": true,
+  "agent_address": "agent1q...",
+  "attestation_uid": "0x1234...",
+  "final_score": 87,
+  "grade": "A",
+  "message": "Agent evaluated successfully! Score: 87/100 (A). Attestation created on EAS."
+}
 ```
 
-### UI Tests
+### Chat Protocol
 
-```bash
-cd ui
-npm run lint                 # Lint checks
-npm run build                # Build validation
-```
+Send an agent address via the uAgents chat protocol and receive:
 
-## 🚀 Deployment
-
-### Agent Deployment
-
-**Local:**
-
-```bash
-cd agents
-python evaluator_agent.py
-```
-
-**Agentverse (24/7 availability):**
-
-1. Set `AGENTVERSE_API_KEY` in agents/.env
-2. Agent already configured with `mailbox=True`
-3. Deploy via Agentverse dashboard
-
-### Contract Deployment
-
-> **Note:** Contracts are already deployed. Only needed for custom setups.
-
-```bash
-cd contracts
-forge script script/Deploy.s.sol:DeployScript \
-  --rpc-url $RPC_URL \
-  --private-key $PRIVATE_KEY \
-  --broadcast
-```
-
-### UI Deployment
-
-**Vercel (Recommended):**
-
-```bash
-cd ui
-npm run build
-# Deploy to Vercel via GitHub integration or CLI
-```
-
-**Environment Variables for Production:**
-
-- `NEXT_PUBLIC_RPC_URL` - Ethereum RPC endpoint
-- `NEXT_PUBLIC_CHAIN_ID` - Chain ID (11155111 for Sepolia)
-- `NEXT_PUBLIC_EAS_CONTRACT_ADDRESS` - EAS contract address
-- `AGENTVERSE_API_KEY` - For fetching agent data
+1. Evaluation scores
+2. Grade (A+ to F)
+3. EAS attestation UID
 
 ## 🏗️ Architecture
 
-Truth Swarm consists of three main layers:
+```
+Frontend → REST POST → Evaluator Agent
+                            ↓
+                    ┌───────┴────────┐
+                    │                │
+              ASI:1 Evaluator   Attestation Manager
+              (Mock or Real)    (EAS Integration)
+                    │                │
+                    └───────┬────────┘
+                            ↓
+                    EvaluationResponse
+                    + Attestation UID
+```
 
-1. **Presentation Layer** (Next.js UI)
+### Components
 
-   - User-facing web interface
-   - Wallet connection & transaction signing
-   - Real-time attestation viewing
+1. **`evaluator_agent.py`** - Main agent implementation
 
-2. **Application Layer** (Python Agents)
+   - REST endpoint: `/evaluate`
+   - Chat protocol handler
+   - Evaluation + attestation orchestration
 
-   - Agent evaluation logic
-   - ASI:1 LLM integration
-   - REST API for external integrations
-   - Chat protocol for interactive use
+2. **`AttestationManager`** - EAS Integration
 
-3. **Blockchain Layer** (Smart Contracts + EAS)
-   - Decentralized attestation storage
-   - Access control via resolver
-   - Immutable verification records
+   - Encodes evaluation data
+   - Creates blockchain attestations
+   - Handles Web3 transactions
+   - Mock mode for testing
 
-**Key Integrations:**
+3. **`ASI1Evaluator`** - Agent Evaluation
 
-- **Ethereum Attestation Service (EAS)** - Decentralized attestation infrastructure
-- **ASI:1 LLM** - AI-powered agent evaluation
-- **Agentverse** - Agent deployment and hosting platform
+   - Generates evaluation scores
+   - Mock mode: realistic random scores
+   - Future: Real ASI:1 evaluation
 
-## 🌐 Supported Networks
+4. **`EvaluationScore`** - Data Structure
+   - All evaluation metrics
+   - Matches EAS schema exactly
+   - Ready for blockchain encoding
 
-- **Sepolia Testnet** (Primary) - Chain ID: 11155111
-- **Base** (Future) - Coming soon
-- **Polygon** (Roadmap) - Planned support
+## 📊 Evaluation Metrics
 
-## 📖 Documentation
+The agent evaluates other agents across three dimensions:
 
-- **[Agent Documentation](agents/README.md)** - Detailed agent usage and API
-- **[Smart Contracts](contracts/)** - Contract specifications and deployment
+1. **Correctness** (40% weight)
+   - How accurate are the agent's responses?
+   - Confidence level (0-10)
+2. **Capabilities** (30% weight)
+   - What can the agent do?
+   - Range of supported operations
+3. **Domain Knowledge** (30% weight)
+   - How well does it understand its domain?
+   - Depth of expertise
 
-## 🤝 Contributing
+**Final Score** = Weighted average (0-100)
+**Grade** = A+, A, B+, B, C+, C, etc.
 
-1. Fork the repository
-2. Create a feature branch (`git checkout -b feature/amazing-feature`)
-3. Commit your changes (`git commit -m 'Add amazing feature'`)
-4. Push to the branch (`git push origin feature/amazing-feature`)
-5. Open a Pull Request
+## 🔗 EAS Schema
 
-### Development Guidelines
+The agent uses the official Truth Swarm EAS schema:
 
-- Follow existing code style and patterns
-- Add tests for new functionality
-- Update documentation for API changes
-- Ensure all tests pass before submitting
+**Schema UID:**
 
-## 📄 License
+```
+0xcd0ab40423e8919b72b665cb563c82b895acc2b690626f2c8180e1db83f6f5bc
+```
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+**Schema Fields:**
+
+- `evaluatedAgentAddress` (string)
+- `evaluatorAgentAddress` (string)
+- `timestamp` (uint256)
+- `finalScore` (uint256)
+- `overallConfidence` (uint8)
+- `grade` (string)
+- `correctnessScore`, `capabilitiesScore`, `domainScore` (uint256 each)
+- Confidence levels and weights for each dimension
+- `detailsCID` (string) - IPFS CID for detailed results
+
+## 🔧 Configuration Options
+
+### Environment Variables
+
+| Variable                    | Description               | Required       | Default            |
+| --------------------------- | ------------------------- | -------------- | ------------------ |
+| `RPC_URL`                   | Ethereum RPC endpoint     | No             | Sepolia Infura     |
+| `CHAIN_ID`                  | Blockchain network ID     | No             | 11155111 (Sepolia) |
+| `EAS_CONTRACT_ADDRESS`      | EAS contract address      | No             | Sepolia EAS        |
+| `RESOLVER_CONTRACT_ADDRESS` | Your resolver contract    | No             | -                  |
+| `PRIVATE_KEY`               | Wallet private key        | No (mock mode) | -                  |
+| `AGENTVERSE_API_KEY`        | Agentverse deployment key | No             | -                  |
+
+### Code Configuration
+
+In `evaluator_agent.py`:
+
+```python
+# Line 366: Toggle mock vs real evaluation
+asi1_evaluator = ASI1Evaluator(agent, use_mock=True)  # Set False for ASI:1
+
+# Line 361: Change port
+agent = Agent(
+    name="evaluator_attestation_agent",
+    port=8000,  # Change this
+    # ...
+)
+```
+
+## 🧪 Testing
+
+### Test with Mock Data
+
+1. Run agent without `PRIVATE_KEY` in `.env`
+2. Agent generates mock evaluations
+3. Returns mock attestation UIDs
+4. Perfect for frontend development
+
+```bash
+# Test REST endpoint
+curl -X POST http://localhost:8000/evaluate \
+  -H "Content-Type: application/json" \
+  -d '{"agent_address": "agent1qtest123456789012345678901234567890123456789012345678901"}'
+```
+
+### Test with Real Blockchain
+
+1. Set `PRIVATE_KEY` in `.env`
+2. Ensure wallet has ETH for gas
+3. Agent creates real EAS attestations
+4. Check attestations on:
+   - Sepolia: https://sepolia.easscan.org/
+   - Base: https://base.easscan.org/
+
+## 📁 Files
+
+```
+agents/
+├── evaluator_agent.py           # Main agent (integrated solution)
+├── resolver_atestation_agent.py # Original resolver agent (reference)
+├── requirements.txt             # Python dependencies
+├── .env.template                # Environment template
+├── config.template              # Legacy config (reference)
+└── README.md                    # This file
+```
+
+## 🎯 For Hackathon
+
+The agent is **hackathon-ready** with:
+
+✅ **Mock Mode** - Test without blockchain
+✅ **REST API** - Easy frontend integration
+✅ **Chat Protocol** - Interactive demos
+✅ **Realistic Scores** - Generated with variation
+✅ **Fast** - Instant responses in mock mode
+
+Just run `python evaluator_agent.py` and start evaluating agents!
+
+## 🚢 Deployment
+
+### Local Development
+
+```bash
+python evaluator_agent.py
+```
+
+### Agentverse Deployment
+
+1. Set `AGENTVERSE_API_KEY` in `.env`
+2. Change `mailbox=True` in code (already enabled)
+3. Deploy to Agentverse for 24/7 availability
+
+## 🤝 Integration with Frontend
+
+Your frontend can call the REST endpoint:
+
+```javascript
+// Example: Evaluate an agent
+const response = await fetch("http://localhost:8000/evaluate", {
+  method: "POST",
+  headers: { "Content-Type": "application/json" },
+  body: JSON.stringify({
+    agent_address: "agent1q...",
+  }),
+});
+
+const result = await response.json();
+console.log("Attestation UID:", result.attestation_uid);
+console.log("Score:", result.final_score);
+console.log("Grade:", result.grade);
+```
+
+## 🔍 Debugging
+
+Check linter errors:
+
+```bash
+# Ensure packages are installed
+pip list | grep -E "(uagents|web3|eth)"
+
+# Check Python version (should be 3.10+)
+python --version
+```
+
+View agent logs:
+
+```bash
+# Agent outputs detailed logs for each evaluation
+# Look for:
+# 📊 Generated evaluation: Score=87/100, Grade=A
+# 🔗 Creating attestation on EAS...
+# ✅ Attestation created: 0x1234...
+```
+
+## 📚 Resources
+
+- [uAgents Documentation](https://fetch.ai/docs)
+- [EAS Documentation](https://docs.attest.sh/)
+- [Fetch.ai Innovation Lab](https://innovationlab.fetch.ai/)
+- [Truth Swarm Project](../README.md)
 
 ## 🆘 Support
 
-- **Issues**: Report bugs and request features via GitHub Issues
-- **Documentation**: Check the component-specific README files
-- **Community**: Join our discussions for questions and support
+For issues:
 
-## 🔮 Roadmap
+1. Check linter errors: Look at import warnings
+2. Verify Python interpreter: Use correct venv
+3. Check `.env` configuration: Especially `PRIVATE_KEY` for production
+4. Review agent logs: Detailed info on startup
 
-- [ ] Multi-chain support (Polygon, Arbitrum)
-- [ ] Advanced evaluation metrics
-- [ ] Decentralized storage integration
-- [ ] Mobile application
-- [ ] API rate limiting and quotas
-- [ ] Advanced analytics dashboard
+---
+
+Built with ❤️ for Truth Swarm Hackathon
